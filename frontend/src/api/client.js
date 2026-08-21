@@ -2,7 +2,7 @@ import axios from 'axios'
 
 // In dev, Vite proxies nothing by default, so point straight at the API.
 // In production, set VITE_API_URL to your deployed backend, e.g. https://api.loopstitch.online
-export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+export const API_BASE = import.meta.env.VITE_API_URL || ''
 
 const client = axios.create({
   baseURL: API_BASE,

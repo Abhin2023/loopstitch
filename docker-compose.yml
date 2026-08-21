@@ -4,24 +4,25 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     ports:
-      - "80:80"
+      - "127.0.0.1:9001:80"
     depends_on:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: mysql+pymysql://root:@db:3306/loopstitch
-      SECRET_KEY: loopstitch-docker-secret-key-change-me-in-prod
+      DATABASE_URL: mysql+pymysql://loopstitch:${MYSQL_PASSWORD}@db:3306/loopstitch
+      SECRET_KEY: ${SECRET_KEY}
       CORS_ORIGINS: http://localhost,http://localhost:80,http://127.0.0.1,https://loopstitch.online,https://www.loopstitch.online
+    volumes:
+      - uploads_data:/app/backend/uploads
     restart: unless-stopped
 
   db:
     image: mariadb:11
-    ports:
-      - "3307:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: ""
-      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: loopstitch
+      MYSQL_USER: loopstitch
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     volumes:
       - mariadb_data:/var/lib/mysql
     healthcheck:
@@ -34,3 +35,4 @@ services:
 
 volumes:
   mariadb_data:
+  uploads_data:
