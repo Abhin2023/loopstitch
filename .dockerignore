@@ -1,0 +1,26 @@
+# Backend
+backend/venv/
+backend/__pycache__/
+backend/app/__pycache__/
+backend/*.db
+backend/.env
+backend/uploads/products/*
+!backend/uploads/products/.gitkeep
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# Docker
+backend/Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Git
+.git/
+.gitignore
+
+# OS
+.DS_Store
+README.md

@@ -1,0 +1,122 @@
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #0B0B0D;
+  --color-panel: #16151A;
+  --color-panel-2: #1E1D23;
+  --color-paper: #F3F1EA;
+  --color-riot: #FF3B5C;
+  --color-acid: #E8FF52;
+  --color-slate: #8A8A93;
+  --color-slate-dim: #4E4E56;
+
+  --font-display: 'Anton', sans-serif;
+  --font-body: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+/* Light theme overrides */
+[data-theme="light"] {
+  --color-ink: #F8F7F3;
+  --color-panel: #FFFFFF;
+  --color-panel-2: #D5D3CC;
+  --color-paper: #1A1A1F;
+  --color-riot: #E6334F;
+  --color-acid: #7DA000;
+  --color-slate: #6B6B73;
+  --color-slate-dim: #ABABAF;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-ink);
+  background-image:
+    radial-gradient(circle, rgba(243, 241, 234, 0.07) 1px, transparent 1px);
+  background-size: 20px 20px;
+  color: var(--color-paper);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+[data-theme="light"] body {
+  background-image:
+    radial-gradient(circle, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+}
+
+::selection {
+  background: var(--color-riot);
+  color: var(--color-ink);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-ink);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-panel-2);
+  border-radius: 8px;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.01em;
+}
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Halftone / screentone texture overlay, used behind hero + section dividers */
+.screentone {
+  background-image: radial-gradient(var(--color-paper) 1px, transparent 1.4px);
+  background-size: 7px 7px;
+  opacity: 0.06;
+  pointer-events: none;
+}
+
+[data-theme="light"] .screentone {
+  opacity: 0.04;
+}
+
+.screentone-red {
+  background-image: radial-gradient(var(--color-riot) 1.1px, transparent 1.6px);
+  background-size: 6px 6px;
+}
+
+/* Perforated / cut-line divider, echoes a hang-tag edge */
+.cutline {
+  border: none;
+  height: 0;
+  border-top: 2px dashed var(--color-slate-dim);
+  opacity: 0.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* Sticker badge (LIMITED / SOLD OUT tags) */
+.sticker {
+  transform: rotate(-4deg);
+}
+
+input:focus-visible,
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-acid);
+  outline-offset: 2px;
+}
