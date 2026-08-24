@@ -42,6 +42,30 @@ export default function Checkout() {
     }
   }, [payuFormData])
 
+  // Render hidden PayU form for auto-submit (must be before empty-cart check)
+  if (payuFormData) {
+    return (
+      <div className="max-w-3xl mx-auto px-5 py-24 text-center">
+        <p className="text-paper font-mono text-sm mb-6">Redirecting to payment…</p>
+        <p className="text-slate font-mono text-xs">Please do not close this page.</p>
+        <form ref={payuFormRef} method="POST" action={payuFormData.payment_url} className="hidden">
+          <input name="key" value={payuFormData.key || ''} readOnly />
+          <input name="txnid" value={payuFormData.txnid || ''} readOnly />
+          <input name="amount" value={payuFormData.amount || ''} readOnly />
+          <input name="productinfo" value={payuFormData.productinfo || ''} readOnly />
+          <input name="firstname" value={payuFormData.firstname || ''} readOnly />
+          <input name="email" value={payuFormData.email || ''} readOnly />
+          <input name="phone" value={payuFormData.phone || ''} readOnly />
+          <input name="surl" value={payuFormData.surl || ''} readOnly />
+          <input name="furl" value={payuFormData.furl || ''} readOnly />
+          <input name="hash" value={payuFormData.hash || ''} readOnly />
+          <input name="udf1" value={payuFormData.udf1 || ''} readOnly />
+          <button type="submit">Pay now</button>
+        </form>
+      </div>
+    )
+  }
+
   if (items.length === 0) {
     return (
       <div className="max-w-3xl mx-auto px-5 py-24 text-center">
@@ -110,30 +134,6 @@ export default function Checkout() {
     } finally {
       setSubmitting(false)
     }
-  }
-
-  // Render hidden PayU form for auto-submit
-  if (payuFormData) {
-    return (
-      <div className="max-w-3xl mx-auto px-5 py-24 text-center">
-        <p className="text-paper font-mono text-sm mb-6">Redirecting to payment…</p>
-        <p className="text-slate font-mono text-xs">Please do not close this page.</p>
-        <form ref={payuFormRef} method="POST" action={payuFormData.payment_url} className="hidden">
-          <input name="key" value={payuFormData.key} readOnly />
-          <input name="txnid" value={payuFormData.txnid} readOnly />
-          <input name="amount" value={payuFormData.amount} readOnly />
-          <input name="productinfo" value={payuFormData.productinfo} readOnly />
-          <input name="firstname" value={payuFormData.firstname} readOnly />
-          <input name="email" value={payuFormData.email} readOnly />
-          <input name="phone" value={payuFormData.phone} readOnly />
-          <input name="surl" value={payuFormData.surl} readOnly />
-          <input name="furl" value={payuFormData.furl} readOnly />
-          <input name="hash" value={payuFormData.hash} readOnly />
-          <input name="udf1" value={payuFormData.udf1} readOnly />
-          <button type="submit">Pay now</button>
-        </form>
-      </div>
-    )
   }
 
   return (

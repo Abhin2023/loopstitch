@@ -7,7 +7,7 @@ from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import Response, HTMLResponse
+from fastapi.responses import Response, HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 
@@ -384,8 +384,8 @@ def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_db)):
         phone = order.customer_phone
 
         base_url = "https://loopstitch.online"
-        surl = f"{base_url}/order/confirm"
-        furl = f"{base_url}/order/confirm"
+        surl = f"{base_url}/api/payu/surl"
+        furl = f"{base_url}/api/payu/furl"
 
         hash_val = payu.generate_hash(
             key=payu_key, salt=payu_salt, txnid=txnid,
@@ -649,6 +649,68 @@ async def payu_webhook(request: Request, db: Session = Depends(get_db)):
 
     db.commit()
     return Response(status_code=200)
+
+
+# ============================================================
+# PAYU SURL / FURL  (PayU POSTs here after redirect)
+# ============================================================
+async def _handle_payu_redirect(request: Request, db: Session) -> RedirectResponse:
+    """Shared handler for PayU surl/furl — verify hash, update order, redirect to SPA."""
+    from urllib.parse import parse_qs
+
+    body = await request.body()
+    params = {k: v[0] if isinstance(v, list) else v for k, v in parse_qs(body.decode("utf-8")).items()}
+
+    txnid = params.get("txnid", "")
+    payu_status = params.get("status", "")
+    mihpayid = params.get("mihpayid", "")
+    amount = params.get("amount", "")
+
+    # Look up order
+    order = db.query(models.Order).options(joinedload(models.Order.items)).filter(
+        models.Order.order_number == txnid
+    ).first()
+
+    if order:
+        # Verify hash
+        raw = {r.key: r.value for r in db.query(models.Setting).all()}
+        salt = raw.get("payu_salt", "")
+        hash_ok = True
+        if salt:
+            hash_ok = verify_hash_valid(salt, params)
+
+        if hash_ok:
+            if payu_status.lower() == "success":
+                order.status = models.OrderStatus.paid
+                order.payu_txnid = mihpayid
+            elif payu_status.lower() in ("failure", "bounced", "dropped", "usercancelled"):
+                order.status = models.OrderStatus.cancelled
+                order.payu_txnid = mihpayid
+                for item in order.items:
+                    size_row = db.query(models.ProductSize).filter(
+                        models.ProductSize.product_id == item.product_id,
+                        models.ProductSize.size == item.size,
+                    ).with_for_update().first()
+                    if size_row:
+                        size_row.stock += item.quantity
+            db.commit()
+
+    # Redirect to SPA order confirmation page with status params
+    status_val = payu_status or "pending"
+    redirect_url = f"/order/confirm?status={status_val}&txnid={txnid}&payuid={mihpayid}&amount={amount}"
+    return RedirectResponse(url=redirect_url, status_code=302)
+
+
+@app.post("/api/payu/surl")
+async def payu_success_redirect(request: Request, db: Session = Depends(get_db)):
+    """PayU success redirect — receives POST, redirects to SPA."""
+    return await _handle_payu_redirect(request, db)
+
+
+@app.post("/api/payu/furl")
+async def payu_failure_redirect(request: Request, db: Session = Depends(get_db)):
+    """PayU failure redirect — receives POST, redirects to SPA."""
+    return await _handle_payu_redirect(request, db)
 
 
 @app.post("/api/payu/verify/{order_number}")
