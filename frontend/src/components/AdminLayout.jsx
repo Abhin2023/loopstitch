@@ -4,7 +4,10 @@ import { useAdminAuth } from '../context/AdminAuthContext'
 const LINKS = [
   { to: '/admin/dashboard', label: 'Dashboard' },
   { to: '/admin/products', label: 'Products' },
+  { to: '/admin/offers', label: 'Offers' },
+  { to: '/admin/coupons', label: 'Coupons' },
   { to: '/admin/orders', label: 'Orders' },
+  { to: '/admin/settings', label: 'Settings' },
 ]
 
 export default function AdminLayout() {

@@ -81,6 +81,55 @@ class OrderStatus(str, enum.Enum):
     cancelled = "cancelled"
 
 
+class OfferScope(str, enum.Enum):
+    all = "all"
+    category = "category"
+    products = "products"
+
+
+class Setting(Base):
+    """Editable store configuration (delivery fee, thresholds, ...)."""
+    __tablename__ = "settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(100), unique=True, index=True, nullable=False)
+    value = Column(String(200), default="")
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+
+class Offer(Base):
+    """Buy X Get Y promotion. scope decides which cart items are eligible."""
+    __tablename__ = "offers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(150), nullable=False)
+    buy_quantity = Column(Integer, nullable=False, default=1)
+    get_quantity = Column(Integer, nullable=False, default=1)
+    scope = Column(Enum(OfferScope), default=OfferScope.all, nullable=False)
+    category = Column(String(100), default="")  # used when scope == category
+    product_ids = Column(Text, default="")      # comma-separated product ids when scope == products
+    is_active = Column(Boolean, default=True, index=True)
+    starts_at = Column(DateTime, nullable=True)
+    ends_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+
+
+class Coupon(Base):
+    """Percentage discount code. Validated at checkout; counts total uses."""
+    __tablename__ = "coupons"
+
+    id = Column(Integer, primary_key=True, index=True)
+    code = Column(String(50), unique=True, index=True, nullable=False)
+    discount_percent = Column(Float, nullable=False)  # e.g. 10 means 10 % off
+    max_uses = Column(Integer, default=0)              # 0 = unlimited
+    times_used = Column(Integer, default=0)
+    min_order = Column(Float, default=0.0)             # minimum subtotal to qualify
+    is_active = Column(Boolean, default=True, index=True)
+    starts_at = Column(DateTime, nullable=True)
+    ends_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+
+
 class Order(Base):
     __tablename__ = "orders"
 
@@ -95,6 +144,12 @@ class Order(Base):
     pincode = Column(String(20), default="")
     status = Column(Enum(OrderStatus), default=OrderStatus.pending, index=True)
     subtotal = Column(Float, default=0)
+    discount_amount = Column(Float, default=0)
+    offer_id = Column(Integer, nullable=True)  # offer applied at purchase time (no FK: survives offer deletion)
+    offer_label = Column(String(200), default="")
+    coupon_id = Column(Integer, nullable=True)
+    coupon_code = Column(String(50), default="")
+    coupon_discount = Column(Float, default=0)
     shipping_fee = Column(Float, default=0)
     total = Column(Float, default=0)
     created_at = Column(DateTime, default=_utcnow)
@@ -112,6 +167,7 @@ class OrderItem(Base):
     size = Column(String(20), nullable=False)
     quantity = Column(Integer, nullable=False)
     unit_price = Column(Float, nullable=False)
+    line_discount = Column(Float, default=0)  # total discount attributed to this line (BOGO free items)
 
     order = relationship("Order", back_populates="items")
     product = relationship("Product", back_populates="order_items")

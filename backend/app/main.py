@@ -13,6 +13,7 @@ from sqlalchemy import func
 
 from . import models, schemas, auth
 from .database import engine, get_db
+from .offers import compute_best_offer, get_shipping_config, set_setting, shipping_fee_for, validate_coupon, apply_coupon_discount
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -268,10 +269,6 @@ def generate_order_number() -> str:
     return "LSC" + _utcnow().strftime("%y%m%d") + uuid.uuid4().hex[:5].upper()
 
 
-SHIPPING_FEE = 79.0
-FREE_SHIPPING_THRESHOLD = 1499.0
-
-
 @app.post("/api/orders", response_model=schemas.OrderOut)
 def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_db)):
     if not payload.items:
@@ -290,6 +287,8 @@ def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_db)):
     db.flush()
 
     subtotal = 0.0
+    cart_ctx = []  # discount-engine context: product + line info
+    item_rows = []
     for line in payload.items:
         product = db.query(models.Product).filter(models.Product.id == line.product_id, models.Product.is_active == True).first()  # noqa: E712
         if not product:
@@ -311,19 +310,96 @@ def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_db)):
         unit_price = product.price
         subtotal += unit_price * line.quantity
 
-        db.add(models.OrderItem(
+        item_rows.append(models.OrderItem(
             order_id=order.id, product_id=product.id, product_name=product.name,
             size=line.size, quantity=line.quantity, unit_price=unit_price,
         ))
+        cart_ctx.append({
+            "product_id": product.id, "size": line.size, "quantity": line.quantity,
+            "unit_price": unit_price, "product": product,
+        })
 
-    shipping_fee = 0.0 if subtotal >= FREE_SHIPPING_THRESHOLD else SHIPPING_FEE
+    # ---- Buy X Get Y (best offer wins) ----
+    best = compute_best_offer(db, cart_ctx)
+    if best:
+        order.discount_amount = best["discount"]
+        order.offer_id = best["offer_id"]
+        order.offer_label = best["label"]
+        for row in item_rows:
+            row.line_discount = round(best["line_discounts"].get((row.product_id, row.size), 0.0), 2)
+
+    # ---- Coupon (percentage off the BOGO-discounted merchandise value) ----
+    subtotal_after_bogo = round(subtotal - (order.discount_amount or 0.0), 2)
+    coupon_info = validate_coupon(db, payload.coupon_code, subtotal)
+    if coupon_info:
+        order.coupon_id = coupon_info["coupon_id"]
+        order.coupon_code = coupon_info["code"]
+        order.coupon_discount = apply_coupon_discount(subtotal_after_bogo, coupon_info)
+        # record the use (atomic increment)
+        db.query(models.Coupon).filter(models.Coupon.id == coupon_info["coupon_id"]).update(
+            {models.Coupon.times_used: models.Coupon.times_used + 1}
+        )
+
+    # free-shipping judged on pre-discount subtotal (editable in admin settings)
+    config = get_shipping_config(db)
+    shipping_fee = shipping_fee_for(subtotal, config)
+
     order.subtotal = subtotal
     order.shipping_fee = shipping_fee
-    order.total = subtotal + shipping_fee
+    order.total = round(subtotal_after_bogo - (order.coupon_discount or 0.0) + shipping_fee, 2)
+
+    for row in item_rows:
+        db.add(row)
 
     db.commit()
     db.refresh(order)
     return order
+
+
+@app.post("/api/cart/quote", response_model=schemas.QuoteOut)
+def cart_quote(payload: schemas.QuoteRequest, db: Session = Depends(get_db)):
+    """Live totals preview (subtotal / discount / shipping) — no stock changes, no order."""
+    from .offers import active_offers as _  # noqa: F401  (engine imported at module load)
+
+    if not payload.items:
+        raise HTTPException(status_code=400, detail="Cart is empty")
+
+    subtotal = 0.0
+    cart_ctx = []
+    for line in payload.items:
+        product = db.query(models.Product).filter(
+            models.Product.id == line.product_id, models.Product.is_active == True  # noqa: E712
+        ).first()
+        if not product:
+            raise HTTPException(status_code=404, detail=f"Product {line.product_id} not found")
+        subtotal += product.price * line.quantity
+        cart_ctx.append({
+            "product_id": product.id, "size": line.size, "quantity": line.quantity,
+            "unit_price": product.price, "product": product,
+        })
+
+    best = compute_best_offer(db, cart_ctx)
+    discount = best["discount"] if best else 0.0
+    label = best["label"] if best else ""
+
+    # ---- Coupon ----
+    subtotal_after_bogo = round(subtotal - discount, 2)
+    coupon_info = validate_coupon(db, payload.coupon_code, subtotal)
+    coupon_discount = apply_coupon_discount(subtotal_after_bogo, coupon_info)
+    coupon_code = coupon_info["code"] if coupon_info else ""
+
+    config = get_shipping_config(db)
+    fee = shipping_fee_for(subtotal, config)
+
+    return {
+        "subtotal": round(subtotal, 2),
+        "discount": round(discount, 2),
+        "offer_label": label,
+        "coupon_code": coupon_code,
+        "coupon_discount": round(coupon_discount, 2),
+        "shipping_fee": round(fee, 2),
+        "total": round(subtotal_after_bogo - coupon_discount + fee, 2),
+    }
 
 
 @app.get("/api/orders/{order_number}", response_model=schemas.OrderOut)
@@ -400,6 +476,222 @@ def admin_download_invoice(order_id: int, db: Session = Depends(get_db), current
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="invoice-{order.order_number}.pdf"'},
     )
+
+
+# ============================================================
+# STORE SETTINGS  (delivery fee etc. — editable from admin)
+# ============================================================
+@app.get("/api/settings/shipping", response_model=schemas.PublicShippingSettings)
+def public_shipping_settings(db: Session = Depends(get_db)):
+    return get_shipping_config(db)
+
+
+@app.get("/api/admin/settings", response_model=schemas.SettingsOut)
+def admin_get_settings(db: Session = Depends(get_db), current: models.Admin = Depends(auth.get_current_admin)):
+    return get_shipping_config(db)
+
+
+@app.patch("/api/admin/settings", response_model=schemas.SettingsOut)
+def admin_update_settings(payload: schemas.SettingsUpdate, db: Session = Depends(get_db), current: models.Admin = Depends(auth.get_current_admin)):
+    if payload.delivery_fee is not None:
+        set_setting(db, "delivery_fee", str(round(float(payload.delivery_fee), 2)))
+    if payload.free_shipping_threshold is not None:
+        set_setting(db, "free_shipping_threshold", str(round(float(payload.free_shipping_threshold), 2)))
+    db.commit()
+    return get_shipping_config(db)
+
+
+# ============================================================
+# OFFERS  (Buy X Get Y — admin managed, applied at checkout)
+# ============================================================
+def _offer_product_ids(offer: models.Offer) -> List[int]:
+    ids = []
+    for part in (offer.product_ids or "").split(","):
+        part = part.strip()
+        if part.isdigit():
+            ids.append(int(part))
+    return ids
+
+
+def _offer_out(offer: models.Offer) -> schemas.OfferOut:
+    return schemas.OfferOut(
+        id=offer.id,
+        name=offer.name,
+        buy_quantity=offer.buy_quantity,
+        get_quantity=offer.get_quantity,
+        scope=offer.scope,
+        category=offer.category or None,
+        product_ids=_offer_product_ids(offer),
+        is_active=offer.is_active,
+        starts_at=offer.starts_at,
+        ends_at=offer.ends_at,
+        created_at=offer.created_at,
+    )
+
+
+def _apply_offer_fields(offer: models.Offer, payload) -> None:
+    offer.name = payload.name.strip()
+    offer.buy_quantity = payload.buy_quantity
+    offer.get_quantity = payload.get_quantity
+    offer.scope = payload.scope
+    offer.category = (payload.category or "") if payload.scope == models.OfferScope.category else ""
+    if payload.scope == models.OfferScope.products:
+        unique_ids = sorted(set(int(pid) for pid in payload.product_ids))
+        offer.product_ids = ",".join(str(pid) for pid in unique_ids)
+    else:
+        offer.product_ids = ""
+    offer.is_active = payload.is_active
+    offer.starts_at = payload.starts_at
+    offer.ends_at = payload.ends_at
+
+
+@app.get("/api/admin/offers")
+def admin_list_offers(db: Session = Depends(get_db), current: models.Admin = Depends(auth.get_current_admin)):
+    offers = db.query(models.Offer).order_by(models.Offer.created_at.desc()).all()
+    return [_offer_out(o) for o in offers]
+
+
+@app.post("/api/admin/offers")
+def admin_create_offer(payload: schemas.OfferCreate, db: Session = Depends(get_db), current: models.Admin = Depends(auth.get_current_admin)):
+    offer = models.Offer(created_at=_utcnow())
+    _apply_offer_fields(offer, payload)
+    db.add(offer)
+    db.commit()
+    db.refresh(offer)
+    return _offer_out(offer)
+
+
+@app.put("/api/admin/offers/{offer_id}")
+def admin_update_offer(offer_id: int, payload: schemas.OfferUpdate, db: Session = Depends(get_db), current: models.Admin = Depends(auth.get_current_admin)):
+    offer = db.query(models.Offer).filter(models.Offer.id == offer_id).first()
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+
+    merged = schemas.OfferCreate(
+        name=payload.name if payload.name is not None else offer.name,
+        buy_quantity=payload.buy_quantity if payload.buy_quantity is not None else offer.buy_quantity,
+        get_quantity=payload.get_quantity if payload.get_quantity is not None else offer.get_quantity,
+        scope=payload.scope if payload.scope is not None else offer.scope,
+        category=payload.category if payload.category is not None else offer.category,
+        product_ids=payload.product_ids if payload.product_ids is not None else _offer_product_ids(offer),
+        is_active=payload.is_active if payload.is_active is not None else offer.is_active,
+        starts_at=payload.starts_at if payload.starts_at is not None else offer.starts_at,
+        ends_at=payload.ends_at if payload.ends_at is not None else offer.ends_at,
+    )
+    _apply_offer_fields(offer, merged)
+    db.commit()
+    db.refresh(offer)
+    return _offer_out(offer)
+
+
+@app.patch("/api/admin/offers/{offer_id}/toggle")
+def admin_toggle_offer(offer_id: int, db: Session = Depends(get_db), current: models.Admin = Depends(auth.get_current_admin)):
+    offer = db.query(models.Offer).filter(models.Offer.id == offer_id).first()
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    offer.is_active = not offer.is_active
+    db.commit()
+    return {"id": offer.id, "is_active": offer.is_active}
+
+
+@app.delete("/api/admin/offers/{offer_id}")
+def admin_delete_offer(offer_id: int, db: Session = Depends(get_db), current: models.Admin = Depends(auth.get_current_admin)):
+    offer = db.query(models.Offer).filter(models.Offer.id == offer_id).first()
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    db.delete(offer)
+    db.commit()
+    return {"detail": "Offer deleted"}
+
+
+# ============================================================
+# COUPONS  (percentage discount codes — validated at checkout)
+# ============================================================
+@app.post("/api/coupons/validate", response_model=schemas.CouponValidateResponse)
+def validate_coupon_api(payload: schemas.CouponValidateRequest, db: Session = Depends(get_db)):
+    """Public endpoint: validate a coupon code and return the discount info."""
+    coupon_info = validate_coupon(db, payload.code, payload.subtotal)
+    if not coupon_info:
+        return schemas.CouponValidateResponse(valid=False, message="Invalid or expired coupon code.")
+    discount_amount = apply_coupon_discount(payload.subtotal, coupon_info)
+    return schemas.CouponValidateResponse(
+        valid=True,
+        code=coupon_info["code"],
+        discount_percent=coupon_info["discount_percent"],
+        discount_amount=discount_amount,
+        message=f"{coupon_info['discount_percent']:.0f}% off applied!",
+    )
+
+
+@app.get("/api/admin/coupons")
+def admin_list_coupons(db: Session = Depends(get_db), current: models.Admin = Depends(auth.get_current_admin)):
+    coupons = db.query(models.Coupon).order_by(models.Coupon.created_at.desc()).all()
+    return coupons
+
+
+@app.post("/api/admin/coupons")
+def admin_create_coupon(payload: schemas.CouponCreate, db: Session = Depends(get_db), current: models.Admin = Depends(auth.get_current_admin)):
+    code = payload.code.strip().upper()
+    if db.query(models.Coupon).filter(models.Coupon.code == code).first():
+        raise HTTPException(status_code=400, detail="A coupon with this code already exists.")
+    coupon = models.Coupon(
+        code=code, discount_percent=payload.discount_percent,
+        max_uses=payload.max_uses, min_order=payload.min_order,
+        is_active=payload.is_active, starts_at=payload.starts_at,
+        ends_at=payload.ends_at, created_at=_utcnow(),
+    )
+    db.add(coupon)
+    db.commit()
+    db.refresh(coupon)
+    return coupon
+
+
+@app.put("/api/admin/coupons/{coupon_id}")
+def admin_update_coupon(coupon_id: int, payload: schemas.CouponUpdate, db: Session = Depends(get_db), current: models.Admin = Depends(auth.get_current_admin)):
+    coupon = db.query(models.Coupon).filter(models.Coupon.id == coupon_id).first()
+    if not coupon:
+        raise HTTPException(status_code=404, detail="Coupon not found")
+    if payload.code is not None:
+        new_code = payload.code.strip().upper()
+        existing = db.query(models.Coupon).filter(models.Coupon.code == new_code, models.Coupon.id != coupon_id).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="A coupon with this code already exists.")
+        coupon.code = new_code
+    if payload.discount_percent is not None:
+        coupon.discount_percent = payload.discount_percent
+    if payload.max_uses is not None:
+        coupon.max_uses = payload.max_uses
+    if payload.min_order is not None:
+        coupon.min_order = payload.min_order
+    if payload.is_active is not None:
+        coupon.is_active = payload.is_active
+    if payload.starts_at is not None:
+        coupon.starts_at = payload.starts_at
+    if payload.ends_at is not None:
+        coupon.ends_at = payload.ends_at
+    db.commit()
+    db.refresh(coupon)
+    return coupon
+
+
+@app.patch("/api/admin/coupons/{coupon_id}/toggle")
+def admin_toggle_coupon(coupon_id: int, db: Session = Depends(get_db), current: models.Admin = Depends(auth.get_current_admin)):
+    coupon = db.query(models.Coupon).filter(models.Coupon.id == coupon_id).first()
+    if not coupon:
+        raise HTTPException(status_code=404, detail="Coupon not found")
+    coupon.is_active = not coupon.is_active
+    db.commit()
+    return {"id": coupon.id, "is_active": coupon.is_active}
+
+
+@app.delete("/api/admin/coupons/{coupon_id}")
+def admin_delete_coupon(coupon_id: int, db: Session = Depends(get_db), current: models.Admin = Depends(auth.get_current_admin)):
+    coupon = db.query(models.Coupon).filter(models.Coupon.id == coupon_id).first()
+    if not coupon:
+        raise HTTPException(status_code=404, detail="Coupon not found")
+    db.delete(coupon)
+    db.commit()
+    return {"detail": "Coupon deleted"}
 
 
 # ============================================================

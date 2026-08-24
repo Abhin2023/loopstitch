@@ -85,9 +85,15 @@ def generate_invoice_pdf(order) -> bytes:
     # Totals
     totals_data = [
         ["Subtotal", f"Rs. {order.subtotal:,.2f}"],
-        ["Shipping", f"Rs. {order.shipping_fee:,.2f}"],
-        ["TOTAL", f"Rs. {order.total:,.2f}"],
     ]
+    if getattr(order, "discount_amount", 0) and order.discount_amount > 0:
+        label = (order.offer_label or "Discount").upper()
+        totals_data.append([f"Discount ({label})", f"- Rs. {order.discount_amount:,.2f}"])
+    if getattr(order, "coupon_discount", 0) and order.coupon_discount > 0:
+        code = (order.coupon_code or "COUPON").upper()
+        totals_data.append([f"Coupon ({code})", f"- Rs. {order.coupon_discount:,.2f}"])
+    totals_data.append(["Shipping", f"Rs. {order.shipping_fee:,.2f}"])
+    totals_data.append(["TOTAL", f"Rs. {order.total:,.2f}"])
     totals_table = Table(totals_data, colWidths=[140 * mm, 30 * mm], hAlign="RIGHT")
     totals_table.setStyle(TableStyle([
         ("ALIGN", (0, 0), (-1, -1), "RIGHT"),

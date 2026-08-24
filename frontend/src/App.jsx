@@ -21,6 +21,11 @@ import AdminLogin from './pages/admin/AdminLogin'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminProducts from './pages/admin/AdminProducts'
 import AdminProductForm from './pages/admin/AdminProductForm'
+import AdminOffers from './pages/admin/AdminOffers'
+import AdminOfferForm from './pages/admin/AdminOfferForm'
+import AdminCoupons from './pages/admin/AdminCoupons'
+import AdminCouponForm from './pages/admin/AdminCouponForm'
+import AdminSettings from './pages/admin/AdminSettings'
 import AdminOrders from './pages/admin/AdminOrders'
 
 export default function App() {
@@ -52,6 +57,13 @@ export default function App() {
               <Route path="products" element={<AdminProducts />} />
               <Route path="products/new" element={<AdminProductForm />} />
               <Route path="products/:id" element={<AdminProductForm />} />
+              <Route path="offers" element={<AdminOffers />} />
+              <Route path="offers/new" element={<AdminOfferForm />} />
+              <Route path="offers/:id" element={<AdminOfferForm />} />
+              <Route path="coupons" element={<AdminCoupons />} />
+              <Route path="coupons/new" element={<AdminCouponForm />} />
+              <Route path="coupons/:id" element={<AdminCouponForm />} />
+              <Route path="settings" element={<AdminSettings />} />
               <Route path="orders" element={<AdminOrders />} />
               <Route path="*" element={<Navigate to="dashboard" replace />} />
             </Route>
