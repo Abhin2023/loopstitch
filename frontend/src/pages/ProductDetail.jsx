@@ -177,7 +177,7 @@ export default function ProductDetail() {
 
           <div className="mt-10 pt-6 border-t border-panel-2 text-xs text-slate space-y-1.5 font-mono">
             <p>· DTF print, 240 GSM heavyweight cotton</p>
-            <p>· Ships in 3–5 business days from Bengaluru</p>
+            <p>· Ships in 3–5 business days from Calicut, Kerala</p>
             <p>· Limited batch — sizes lock permanently once sold</p>
           </div>
         </div>

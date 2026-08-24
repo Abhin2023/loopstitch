@@ -5,7 +5,7 @@ export default function Privacy() {
       <h1 className="font-display text-4xl sm:text-5xl uppercase text-paper mb-4 leading-tight">
         Privacy &amp; Policies
       </h1>
-      <p className="font-mono text-xs text-slate mb-10">Effective date: August 21, 2026</p>
+      <p className="font-mono text-xs text-slate mb-10">Effective date: August 24, 2026</p>
 
       <div className="space-y-8 text-paper/75 text-sm sm:text-base leading-relaxed">
         {/* ── PRIVACY POLICY ── */}
@@ -16,9 +16,9 @@ export default function Privacy() {
         <section>
           <h2 className="font-display text-xl uppercase text-paper mb-3">Introduction</h2>
           <p>
-            This Privacy Policy describes how 6238860673 and its affiliates (collectively "6238860673,
+            This Privacy Policy describes how Loopstitch and its affiliates (collectively "Loopstitch,
             we, our, us") collect, use, share, protect or otherwise process your information / personal
-            data through our website http://loopstitch.online/ (hereinafter referred to as Platform).
+            data through our website https://loopstitch.online/ (hereinafter referred to as Platform).
             Please note that you may be able to browse certain sections of the Platform without
             registering with us. We do not offer any product/service under this Platform outside India
             and your personal data will primarily be stored and processed in India.
@@ -61,7 +61,7 @@ export default function Privacy() {
             We shall not be responsible for the third-party business partner's privacy practices or the
             content of their privacy policies, and we request you to read their privacy policies prior to
             disclosing any information. If you receive an email, a call from a person/association claiming
-            to be 6238860673 seeking any personal data like debit/credit card PIN, net-banking or mobile
+            to be Loopstitch seeking any personal data like debit/credit card PIN, net-banking or mobile
             banking password, we request you to never provide such information. If you have already
             revealed such information, report it immediately to an appropriate law enforcement agency.
           </p>
@@ -229,7 +229,7 @@ export default function Privacy() {
               may choose to reject the product at the doorstep.
             </li>
             <li>
-              6238860673 does not accept cancellation requests for perishable items like flowers,
+              Loopstitch does not accept cancellation requests for perishable items like flowers,
               eatables, etc. However, the refund / replacement can be made if the user establishes that
               the quality of the product delivered is not good.
             </li>
@@ -247,7 +247,7 @@ export default function Privacy() {
               manufacturers, please refer the issue to them.
             </li>
             <li>
-              In case of any refunds approved by 6238860673, it will take 14 days for the refund to be
+              In case of any refunds approved by Loopstitch, it will take 14 days for the refund to be
               processed to you.
             </li>
           </ol>

@@ -24,9 +24,11 @@ export default function Footer() {
           <ul className="space-y-2 text-sm text-paper/80">
             <li><Link to="/about" className="hover:text-acid transition-colors">About the brand</Link></li>
             <li><Link to="/terms" className="hover:text-acid transition-colors">Terms &amp; Conditions</Link></li>
-            <li><Link to="/privacy" className="hover:text-acid transition-colors">Privacy &amp; Refund Policy</Link></li>
+            <li><Link to="/privacy" className="hover:text-acid transition-colors">Privacy Policy</Link></li>
+            <li><Link to="/privacy" className="hover:text-acid transition-colors">Refund, Return &amp; Cancellation</Link></li>
+            <li><Link to="/privacy" className="hover:text-acid transition-colors">Shipping Policy</Link></li>
             <li><a href="mailto:hello@loopstitch.online" className="hover:text-acid transition-colors">hello@loopstitch.online</a></li>
-            <li className="text-slate">Electronic City, Bengaluru</li>
+            <li className="text-slate">Moolad, Naduvannur, Calicut - 673614</li>
           </ul>
         </div>
       </div>

@@ -5,7 +5,7 @@ export default function Terms() {
       <h1 className="font-display text-4xl sm:text-5xl uppercase text-paper mb-4 leading-tight">
         Terms &amp; Conditions
       </h1>
-      <p className="font-mono text-xs text-slate mb-10">Effective date: August 21, 2026</p>
+      <p className="font-mono text-xs text-slate mb-10">Effective date: August 24, 2026</p>
 
       <div className="space-y-8 text-paper/75 text-sm sm:text-base leading-relaxed">
         <section>
@@ -22,16 +22,16 @@ export default function Terms() {
             2. This document is published in accordance with the provisions of Rule 3 (1) of the
             Information Technology (Intermediaries guidelines) Rules, 2011 that require publishing the
             rules and regulations, privacy policy and Terms of Use for access or usage of domain name
-            http://loopstitch.online/ ('Website'), including the related mobile site and mobile application
+            https://loopstitch.online/ ('Website'), including the related mobile site and mobile application
             (hereinafter referred to as 'Platform').
           </p>
         </section>
 
         <section>
           <p>
-            3. The Platform is owned by 6238860673, a company incorporated under the Companies Act,
-            1956 with its registered office at moolad, naduvannur, calicut (hereinafter referred to as
-            'Platform Owner', 'we', 'us', 'our').
+            3. The Platform is owned and operated by Loopstitch, with its registered office at Moolad,
+            Naduvannur, Calicut, Kerala - 673614, India (hereinafter referred to as 'Platform Owner',
+            'we', 'us', 'our').
           </p>
         </section>
 
@@ -136,13 +136,28 @@ export default function Terms() {
             </li>
             <li>
               All disputes arising out of or in connection with these Terms shall be subject to the
-              exclusive jurisdiction of the courts in India.
+              exclusive jurisdiction of the courts at Kozhikode (Calicut), Kerala, India.
             </li>
             <li>
               All concerns or communications relating to these Terms must be communicated to us using
-              the contact information provided on this website.
+              the contact information provided below.
             </li>
           </ol>
+        </section>
+
+        <section>
+          <h2 className="font-display text-xl uppercase text-paper mb-3">8. Contact Us</h2>
+          <p>
+            <strong>Loopstitch</strong><br />
+            Grievance Officer: Abhin<br />
+            Address: Moolad, Naduvannur, Calicut, Kerala - 673614, India<br />
+            Phone: +91 62388 60673<br />
+            Email:{' '}
+            <a href="mailto:hello@loopstitch.online" className="text-acid hover:text-riot transition-colors">
+              hello@loopstitch.online
+            </a><br />
+            Time: Monday - Friday (9:00 - 18:00)
+          </p>
         </section>
       </div>
     </div>

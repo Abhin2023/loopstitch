@@ -49,7 +49,7 @@ export default function Home() {
             transition={{ duration: 0.5, delay: 0.25 }}
             className="mt-6 max-w-md text-paper/70 text-sm sm:text-base leading-relaxed"
           >
-            Loopstitch Co. prints anime-inspired streetwear in small DTF batches out of Bengaluru.
+            Loopstitch Co. prints anime-inspired streetwear in small DTF batches out of Calicut, Kerala.
             No restocks, no mass production — once a size sells out, it's locked for good.
           </motion.p>
 
@@ -109,7 +109,7 @@ export default function Home() {
         {[
           { label: 'Design', copy: 'Original anime & streetwear graphics, drawn in-house per drop.' },
           { label: 'Print', copy: 'DTF printed on 240 GSM heavyweight cotton for a premium, durable finish.' },
-          { label: 'Ship', copy: 'Packed and shipped from Bengaluru, tracked door to door.' },
+          { label: 'Ship', copy: 'Packed and shipped from Calicut, Kerala — tracked door to door.' },
         ].map((item) => (
           <div key={item.label}>
             <h3 className="font-display text-2xl uppercase text-acid mb-2">{item.label}</h3>

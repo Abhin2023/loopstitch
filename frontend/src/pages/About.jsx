@@ -7,7 +7,7 @@ export default function About() {
       </h1>
       <div className="space-y-5 text-paper/75 text-sm sm:text-base leading-relaxed">
         <p>
-          Loopstitch Co. started in Electronic City, Bengaluru, with one idea: streetwear that actually
+          Loopstitch Co. started in Naduvannur, Calicut, with one idea: streetwear that actually
           gets anime right — not a licensed logo slapped on a blank tee, but original graphics designed
           for the culture.
         </p>
