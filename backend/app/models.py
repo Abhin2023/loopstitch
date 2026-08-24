@@ -9,7 +9,7 @@ from .database import Base
 
 
 def _utcnow():
-    return datetime.datetime.now(datetime.timezone.utc)
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
 
 
 class Admin(Base):
@@ -79,6 +79,7 @@ class OrderStatus(str, enum.Enum):
     shipped = "shipped"
     delivered = "delivered"
     cancelled = "cancelled"
+    failed = "failed"
 
 
 class OfferScope(str, enum.Enum):
@@ -152,6 +153,8 @@ class Order(Base):
     coupon_discount = Column(Float, default=0)
     shipping_fee = Column(Float, default=0)
     total = Column(Float, default=0)
+    payment_method = Column(String(20), default="cod")  # "cod" or "online"
+    payu_txnid = Column(String(100), default="")  # PayU mihpayid for online payments
     created_at = Column(DateTime, default=_utcnow)
 
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")

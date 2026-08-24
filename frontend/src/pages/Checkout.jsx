@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
 import client from '../api/client'
 import { useCart } from '../context/CartContext'
@@ -23,6 +23,24 @@ export default function Checkout() {
   const [form, setForm] = useState(initialForm)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
+  const [paymentMethod, setPaymentMethod] = useState('online')
+  const [codEnabled, setCodEnabled] = useState(false)
+  const payuFormRef = useRef(null)
+  const [payuFormData, setPayuFormData] = useState(null)
+
+  useEffect(() => {
+    client.get('/api/settings/checkout').then((res) => {
+      const codOn = res.data.cod_enabled
+      setCodEnabled(codOn)
+      if (!codOn) setPaymentMethod('online')
+    }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    if (payuFormData && payuFormRef.current) {
+      payuFormRef.current.submit()
+    }
+  }, [payuFormData])
 
   if (items.length === 0) {
     return (
@@ -71,11 +89,20 @@ export default function Checkout() {
     try {
       const payload = {
         ...form,
+        payment_method: paymentMethod,
         coupon_code: couponApplied?.code || couponCode.trim().toUpperCase() || undefined,
         items: items.map((i) => ({ product_id: i.productId, size: i.size, quantity: i.quantity })),
       }
       const res = await client.post('/api/orders', payload)
-      const orderData = res.data
+      const data = res.data
+      const orderData = data.order
+
+      if (paymentMethod === 'online' && data.payu_form_data) {
+        clearCart()
+        setPayuFormData(data.payu_form_data)
+        return
+      }
+
       clearCart()
       navigate('/order/confirm', { state: { order: orderData } })
     } catch (err) {
@@ -83,6 +110,30 @@ export default function Checkout() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  // Render hidden PayU form for auto-submit
+  if (payuFormData) {
+    return (
+      <div className="max-w-3xl mx-auto px-5 py-24 text-center">
+        <p className="text-paper font-mono text-sm mb-6">Redirecting to payment…</p>
+        <p className="text-slate font-mono text-xs">Please do not close this page.</p>
+        <form ref={payuFormRef} method="POST" action={payuFormData.payment_url} className="hidden">
+          <input name="key" value={payuFormData.key} readOnly />
+          <input name="txnid" value={payuFormData.txnid} readOnly />
+          <input name="amount" value={payuFormData.amount} readOnly />
+          <input name="productinfo" value={payuFormData.productinfo} readOnly />
+          <input name="firstname" value={payuFormData.firstname} readOnly />
+          <input name="email" value={payuFormData.email} readOnly />
+          <input name="phone" value={payuFormData.phone} readOnly />
+          <input name="surl" value={payuFormData.surl} readOnly />
+          <input name="furl" value={payuFormData.furl} readOnly />
+          <input name="hash" value={payuFormData.hash} readOnly />
+          <input name="udf1" value={payuFormData.udf1} readOnly />
+          <button type="submit">Pay now</button>
+        </form>
+      </div>
+    )
   }
 
   return (
@@ -103,6 +154,41 @@ export default function Checkout() {
             <Field label="Pincode" name="pincode" value={form.pincode} onChange={handleChange} required pattern="[0-9]{6}" title="Enter a valid 6-digit pincode" />
           </div>
 
+          {/* Payment method */}
+          <div className="border border-panel-2 p-5 space-y-3">
+            <h2 className="font-mono text-xs uppercase tracking-widest text-acid">Payment method</h2>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="radio"
+                name="payment_method"
+                value="online"
+                checked={paymentMethod === 'online'}
+                onChange={() => setPaymentMethod('online')}
+                className="accent-acid"
+              />
+              <span className="font-mono text-sm text-paper">Pay online — Card / UPI / Wallet</span>
+            </label>
+            {codEnabled && (
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="payment_method"
+                  value="cod"
+                  checked={paymentMethod === 'cod'}
+                  onChange={() => setPaymentMethod('cod')}
+                  className="accent-acid"
+                />
+                <span className="font-mono text-sm text-paper">Cash on Delivery</span>
+              </label>
+            )}
+            {paymentMethod === 'online' && (
+              <p className="font-mono text-[11px] text-slate">You will be redirected to PayU's secure payment page.</p>
+            )}
+            {paymentMethod === 'cod' && (
+              <p className="font-mono text-[11px] text-slate">Pay with cash when your order arrives.</p>
+            )}
+          </div>
+
           {error && (
             <div className="border border-riot bg-riot/10 text-riot text-sm font-mono px-4 py-3">{error}</div>
           )}
@@ -112,11 +198,8 @@ export default function Checkout() {
             disabled={submitting}
             className="w-full sm:w-auto bg-riot text-ink font-mono text-sm uppercase tracking-widest px-8 py-3.5 hover:bg-acid transition-colors disabled:opacity-60"
           >
-            {submitting ? 'Placing order…' : 'Place order · Cash / UPI on delivery'}
+            {submitting ? 'Placing order…' : paymentMethod === 'online' ? 'Place order · Pay online' : 'Place order · Cash on delivery'}
           </button>
-          <p className="font-mono text-[11px] text-slate">
-            This starter ships with a COD-style checkout. Wire in Razorpay/Stripe here for live card & UPI payments.
-          </p>
         </form>
 
         <div className="h-fit border border-panel-2 p-6 space-y-3">

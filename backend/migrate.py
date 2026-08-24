@@ -51,6 +51,8 @@ def ensure_columns() -> None:
             models.Order.coupon_id,
             models.Order.coupon_code,
             models.Order.coupon_discount,
+            models.Order.payment_method,
+            models.Order.payu_txnid,
         ],
         "order_items": [
             models.OrderItem.line_discount,
@@ -71,6 +73,10 @@ def seed_settings() -> None:
     defaults = {
         "delivery_fee": "45",
         "free_shipping_threshold": "1000",
+        "payu_key": "",
+        "payu_salt": "",
+        "payu_test_mode": "true",
+        "cod_enabled": "false",
     }
     db = SessionLocal()
     try:

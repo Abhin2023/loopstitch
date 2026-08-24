@@ -14,7 +14,7 @@ from . import models
 
 
 def _utcnow() -> datetime.datetime:
-    return datetime.datetime.now(datetime.timezone.utc)
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
 
 
 # ---------------------------------------------------------------- settings
@@ -110,39 +110,47 @@ def compute_best_offer(
     """
     best: Optional[Dict] = None
 
-    for offer in active_offers(db):
-        eligible = _eligible_lines(lines, offer)
-        total_units = sum(l["quantity"] for l in eligible)
-        if total_units < offer.buy_quantity:
+    try:
+        offers = active_offers(db)
+    except Exception:
+        return None
+
+    for offer in offers:
+        try:
+            eligible = _eligible_lines(lines, offer)
+            total_units = sum(l["quantity"] for l in eligible)
+            if total_units < offer.buy_quantity:
+                continue
+            # group-based rule: every complete (buy + get) set yields `get` free units.
+            # e.g. Buy2Get1 with 5 units -> floor(5/3)=1 complete set -> 1 free.
+            group_size = offer.buy_quantity + offer.get_quantity
+            free_units = (total_units // group_size) * offer.get_quantity
+            if free_units <= 0:
+                continue
+
+            # cheapest units become the free ones (standard retail BOGO practice)
+            units = sorted(
+                ((l["unit_price"], (l["product_id"], l["size"])) for l in eligible for _ in range(l["quantity"])),
+                key=lambda u: u[0],
+            )
+            cheapest = units[:free_units]
+
+            discount = 0.0
+            line_discounts: Dict[tuple, float] = {}
+            for price, key in cheapest:
+                discount += price
+                line_discounts[key] = line_discounts.get(key, 0.0) + price
+
+            candidate = {
+                "offer_id": offer.id,
+                "label": offer.name or offer_label(offer),
+                "discount": round(discount, 2),
+                "line_discounts": line_discounts,
+            }
+            if best is None or candidate["discount"] > best["discount"]:
+                best = candidate
+        except Exception:
             continue
-        # group-based rule: every complete (buy + get) set yields `get` free units.
-        # e.g. Buy2Get1 with 5 units -> floor(5/3)=1 complete set -> 1 free.
-        group_size = offer.buy_quantity + offer.get_quantity
-        free_units = (total_units // group_size) * offer.get_quantity
-        if free_units <= 0:
-            continue
-
-        # cheapest units become the free ones (standard retail BOGO practice)
-        units = sorted(
-            ((l["unit_price"], (l["product_id"], l["size"])) for l in eligible for _ in range(l["quantity"])),
-            key=lambda u: u[0],
-        )
-        cheapest = units[:free_units]
-
-        discount = 0.0
-        line_discounts: Dict[tuple, float] = {}
-        for price, key in cheapest:
-            discount += price
-            line_discounts[key] = line_discounts.get(key, 0.0) + price
-
-        candidate = {
-            "offer_id": offer.id,
-            "label": offer.name or offer_label(offer),
-            "discount": round(discount, 2),
-            "line_discounts": line_discounts,
-        }
-        if best is None or candidate["discount"] > best["discount"]:
-            best = candidate
 
     return best
 

@@ -4,16 +4,18 @@ import uuid
 import datetime
 from typing import List, Optional
 
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, status
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import Response
+from fastapi.responses import Response, HTMLResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 
 from . import models, schemas, auth
 from .database import engine, get_db
 from .offers import compute_best_offer, get_shipping_config, set_setting, shipping_fee_for, validate_coupon, apply_coupon_discount
+from . import payu
+from .payu import verify_hash_valid
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -37,7 +39,7 @@ MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
 def _utcnow():
-    return datetime.datetime.now(datetime.timezone.utc)
+    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
 
 
 def slugify(text: str) -> str:
@@ -269,10 +271,23 @@ def generate_order_number() -> str:
     return "LSC" + _utcnow().strftime("%y%m%d") + uuid.uuid4().hex[:5].upper()
 
 
-@app.post("/api/orders", response_model=schemas.OrderOut)
+@app.post("/api/orders")
 def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_db)):
     if not payload.items:
         raise HTTPException(status_code=400, detail="Cart is empty")
+
+    # Validate payment method
+    payment_method = payload.payment_method if payload.payment_method in ("cod", "online") else "cod"
+    raw_settings = {r.key: r.value for r in db.query(models.Setting).all()}
+
+    if payment_method == "cod" and raw_settings.get("cod_enabled", "false") != "true":
+        raise HTTPException(status_code=400, detail="Cash on delivery is not available. Please choose online payment.")
+
+    if payment_method == "online":
+        payu_key = raw_settings.get("payu_key", "")
+        payu_salt = raw_settings.get("payu_salt", "")
+        if not payu_key or not payu_salt:
+            raise HTTPException(status_code=400, detail="Online payment is not configured. Please try again later.")
 
     order = models.Order(
         order_number=generate_order_number(),
@@ -282,6 +297,7 @@ def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_db)):
         shipping_address=payload.shipping_address,
         city=payload.city, state=payload.state, pincode=payload.pincode,
         status=models.OrderStatus.pending,
+        payment_method=payment_method,
     )
     db.add(order)
     db.flush()
@@ -353,7 +369,49 @@ def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_db)):
 
     db.commit()
     db.refresh(order)
-    return order
+
+    # For online payments, generate PayU hash and return form data
+    if payment_method == "online":
+        payu_key = raw_settings.get("payu_key", "")
+        payu_salt = raw_settings.get("payu_salt", "")
+        is_test = raw_settings.get("payu_test_mode", "true") == "true"
+
+        amount_str = f"{order.total:.2f}"
+        product_info = "Loopstitch Order"
+        txnid = order.order_number
+        firstname = order.customer_name
+        email = order.customer_email
+        phone = order.customer_phone
+
+        base_url = "https://loopstitch.online"
+        surl = f"{base_url}/order/confirm"
+        furl = f"{base_url}/order/confirm"
+
+        hash_val = payu.generate_hash(
+            key=payu_key, salt=payu_salt, txnid=txnid,
+            amount=amount_str, productinfo=product_info,
+            firstname=firstname, email=email, udf1=txnid,
+        )
+
+        return {
+            "order": schemas.OrderOut.model_validate(order).model_dump(),
+            "payu_form_data": {
+                "payment_url": payu.payment_url(is_test),
+                "key": payu_key,
+                "txnid": txnid,
+                "amount": amount_str,
+                "productinfo": product_info,
+                "firstname": firstname,
+                "email": email,
+                "phone": phone,
+                "surl": surl,
+                "furl": furl,
+                "hash": hash_val,
+                "udf1": txnid,
+            },
+        }
+
+    return {"order": schemas.OrderOut.model_validate(order).model_dump()}
 
 
 @app.post("/api/cart/quote", response_model=schemas.QuoteOut)
@@ -481,14 +539,44 @@ def admin_download_invoice(order_id: int, db: Session = Depends(get_db), current
 # ============================================================
 # STORE SETTINGS  (delivery fee etc. — editable from admin)
 # ============================================================
+# SETTINGS (delivery + PayU + COD — admin managed)
+# ============================================================
+def _get_all_settings(db: Session) -> dict:
+    """Read all settings from the DB into a flat dict."""
+    rows = db.query(models.Setting).all()
+    return {r.key: r.value for r in rows}
+
+
+def _build_settings_out(db: Session) -> schemas.SettingsOut:
+    raw = _get_all_settings(db)
+    salt_full = raw.get("payu_salt", "")
+    salt_masked = ("***" + salt_full[-4:]) if len(salt_full) > 4 else salt_full
+    return schemas.SettingsOut(
+        delivery_fee=float(raw.get("delivery_fee", 45)),
+        free_shipping_threshold=float(raw.get("free_shipping_threshold", 1000)),
+        payu_key=raw.get("payu_key", ""),
+        payu_salt=salt_masked,
+        payu_test_mode=raw.get("payu_test_mode", "true") == "true",
+        cod_enabled=raw.get("cod_enabled", "false") == "true",
+    )
+
+
 @app.get("/api/settings/shipping", response_model=schemas.PublicShippingSettings)
 def public_shipping_settings(db: Session = Depends(get_db)):
     return get_shipping_config(db)
 
 
+@app.get("/api/settings/checkout", response_model=schemas.PublicCheckoutSettings)
+def public_checkout_settings(db: Session = Depends(get_db)):
+    raw = _get_all_settings(db)
+    return schemas.PublicCheckoutSettings(
+        cod_enabled=raw.get("cod_enabled", "false") == "true",
+    )
+
+
 @app.get("/api/admin/settings", response_model=schemas.SettingsOut)
 def admin_get_settings(db: Session = Depends(get_db), current: models.Admin = Depends(auth.get_current_admin)):
-    return get_shipping_config(db)
+    return _build_settings_out(db)
 
 
 @app.patch("/api/admin/settings", response_model=schemas.SettingsOut)
@@ -497,8 +585,104 @@ def admin_update_settings(payload: schemas.SettingsUpdate, db: Session = Depends
         set_setting(db, "delivery_fee", str(round(float(payload.delivery_fee), 2)))
     if payload.free_shipping_threshold is not None:
         set_setting(db, "free_shipping_threshold", str(round(float(payload.free_shipping_threshold), 2)))
+    if payload.payu_key is not None:
+        set_setting(db, "payu_key", payload.payu_key.strip())
+    if payload.payu_salt is not None:
+        # If the salt is masked (starts with ***) keep the old value
+        salt_val = payload.payu_salt.strip()
+        if not salt_val.startswith("***"):
+            set_setting(db, "payu_salt", salt_val)
+    if payload.payu_test_mode is not None:
+        set_setting(db, "payu_test_mode", "true" if payload.payu_test_mode else "false")
+    if payload.cod_enabled is not None:
+        set_setting(db, "cod_enabled", "true" if payload.cod_enabled else "false")
     db.commit()
-    return get_shipping_config(db)
+    return _build_settings_out(db)
+
+
+# ============================================================
+# PAYU WEBHOOK  (PayU POSTs here on payment success/failure)
+# ============================================================
+@app.post("/api/webhooks/payu")
+async def payu_webhook(request: Request, db: Session = Depends(get_db)):
+    """Public endpoint — PayU sends form-encoded payment notifications here."""
+    from urllib.parse import parse_qs
+
+    body = await request.body()
+    params = {k: v[0] if isinstance(v, list) else v for k, v in parse_qs(body.decode("utf-8")).items()}
+
+    txnid = params.get("txnid", "")
+    payu_status = params.get("status", "")
+    mihpayid = params.get("mihpayid", "")
+
+    if not txnid:
+        return Response(status_code=200)
+
+    # Look up the order by txnid stored in udf1 (our order_number)
+    order = db.query(models.Order).filter(models.Order.order_number == txnid).first()
+    if not order:
+        # try matching by payu_txnid if this is a retry
+        return Response(status_code=200)
+
+    # Verify hash
+    raw = {r.key: r.value for r in db.query(models.Setting).all()}
+    salt = raw.get("payu_salt", "")
+    if salt:
+        if not verify_hash_valid(salt, params):
+            return Response(status_code=200)  # invalid hash — ignore
+
+    # Update order based on status
+    if payu_status.lower() == "success":
+        order.status = models.OrderStatus.paid
+        order.payu_txnid = mihpayid
+    elif payu_status.lower() in ("failure", "bounced", "dropped", "usercancelled"):
+        order.status = models.OrderStatus.cancelled
+        order.payu_txnid = mihpayid
+        # Restore stock
+        for item in order.items:
+            size_row = db.query(models.ProductSize).filter(
+                models.ProductSize.product_id == item.product_id,
+                models.ProductSize.size == item.size,
+            ).with_for_update().first()
+            if size_row:
+                size_row.stock += item.quantity
+
+    db.commit()
+    return Response(status_code=200)
+
+
+@app.post("/api/payu/verify/{order_number}")
+def payu_verify_order(order_number: str, db: Session = Depends(get_db)):
+    """Fallback verification — calls PayU verify_payment API."""
+    order = db.query(models.Order).options(joinedload(models.Order.items)).filter(
+        models.Order.order_number == order_number
+    ).first()
+    if not order or order.payment_method != "online":
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    raw = {r.key: r.value for r in db.query(models.Setting).all()}
+    key = raw.get("payu_key", "")
+    salt = raw.get("payu_salt", "")
+    is_test = raw.get("payu_test_mode", "true") == "true"
+
+    if not key or not salt:
+        raise HTTPException(status_code=400, detail="PayU credentials not configured")
+
+    txnid = order.order_number
+    result = payu.verify_payment_api(key, salt, txnid, is_test)
+    if not result:
+        raise HTTPException(status_code=502, detail="Could not verify with PayU")
+
+    status_info = result.get("status", -1)
+    if isinstance(status_info, dict) and status_info.get("result") == "success":
+        txn = status_info.get("transaction_details", {}).get(txnid, {})
+        if txn.get("status") == "success":
+            order.status = models.OrderStatus.paid
+            order.payu_txnid = txn.get("mihpayid", "")
+            db.commit()
+            return {"verified": True, "status": "paid"}
+
+    return {"verified": False, "status": order.status.value}
 
 
 # ============================================================

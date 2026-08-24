@@ -93,6 +93,8 @@ class OrderCreate(BaseModel):
     city: str = ""
     state: str = ""
     pincode: str = ""
+    payment_method: str = "cod"
+    coupon_code: Optional[str] = None
     items: List[OrderItemIn]
 
 
@@ -126,6 +128,8 @@ class OrderOut(BaseModel):
     coupon_discount: float = 0
     shipping_fee: float
     total: float
+    payment_method: str = "cod"
+    payu_txnid: str = ""
     created_at: datetime
     items: List[OrderItemOut] = []
 
@@ -135,6 +139,22 @@ class OrderOut(BaseModel):
 
 class OrderStatusUpdate(BaseModel):
     status: models.OrderStatus
+
+
+class PayuFormOut(BaseModel):
+    """Form data returned to frontend for auto-submitting to PayU."""
+    payment_url: str
+    key: str
+    txnid: str
+    amount: str
+    productinfo: str
+    firstname: str
+    email: str
+    phone: str
+    surl: str
+    furl: str
+    hash: str
+    udf1: str = ""
 
 
 # ---------- Coupons ----------
@@ -241,13 +261,25 @@ class QuoteOut(BaseModel):
 class SettingsOut(BaseModel):
     delivery_fee: float
     free_shipping_threshold: float
+    payu_key: str = ""
+    payu_salt: str = ""
+    payu_test_mode: bool = True
+    cod_enabled: bool = False
 
 
 class SettingsUpdate(BaseModel):
     delivery_fee: Optional[float] = Field(default=None, ge=0)
     free_shipping_threshold: Optional[float] = Field(default=None, ge=0)
+    payu_key: Optional[str] = None
+    payu_salt: Optional[str] = None
+    payu_test_mode: Optional[bool] = None
+    cod_enabled: Optional[bool] = None
 
 
 class PublicShippingSettings(BaseModel):
     delivery_fee: float
     free_shipping_threshold: float
+
+
+class PublicCheckoutSettings(BaseModel):
+    cod_enabled: bool
