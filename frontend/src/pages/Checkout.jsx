@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
 import client from '../api/client'
 import { useCart } from '../context/CartContext'
@@ -25,8 +25,7 @@ export default function Checkout() {
   const [error, setError] = useState(null)
   const [paymentMethod, setPaymentMethod] = useState('online')
   const [codEnabled, setCodEnabled] = useState(false)
-  const payuFormRef = useRef(null)
-  const [payuFormData, setPayuFormData] = useState(null)
+  const [payProcessing, setPayProcessing] = useState(false)
 
   useEffect(() => {
     client.get('/api/settings/checkout').then((res) => {
@@ -35,36 +34,6 @@ export default function Checkout() {
       if (!codOn) setPaymentMethod('online')
     }).catch(() => {})
   }, [])
-
-  useEffect(() => {
-    if (payuFormData && payuFormRef.current) {
-      payuFormRef.current.submit()
-    }
-  }, [payuFormData])
-
-  // Render hidden PayU form for auto-submit (must be before empty-cart check)
-  if (payuFormData) {
-    return (
-      <div className="max-w-3xl mx-auto px-5 py-24 text-center">
-        <p className="text-paper font-mono text-sm mb-6">Redirecting to payment…</p>
-        <p className="text-slate font-mono text-xs">Please do not close this page.</p>
-        <form ref={payuFormRef} method="POST" action={payuFormData.payment_url} className="hidden">
-          <input name="key" value={payuFormData.key || ''} readOnly />
-          <input name="txnid" value={payuFormData.txnid || ''} readOnly />
-          <input name="amount" value={payuFormData.amount || ''} readOnly />
-          <input name="productinfo" value={payuFormData.productinfo || ''} readOnly />
-          <input name="firstname" value={payuFormData.firstname || ''} readOnly />
-          <input name="email" value={payuFormData.email || ''} readOnly />
-          <input name="phone" value={payuFormData.phone || ''} readOnly />
-          <input name="surl" value={payuFormData.surl || ''} readOnly />
-          <input name="furl" value={payuFormData.furl || ''} readOnly />
-          <input name="hash" value={payuFormData.hash || ''} readOnly />
-          <input name="udf1" value={payuFormData.udf1 || ''} readOnly />
-          <button type="submit">Pay now</button>
-        </form>
-      </div>
-    )
-  }
 
   if (items.length === 0) {
     return (
@@ -106,6 +75,61 @@ export default function Checkout() {
     setCouponError(null)
   }
 
+  const launchPayUPopup = (payuFormData, orderData) => {
+    const boltLoaded = typeof window.Bolt !== 'undefined'
+
+    if (!boltLoaded) {
+      setError('Payment module failed to load. Please refresh and try again.')
+      setPayProcessing(false)
+      return
+    }
+
+    const data = {
+      key: payuFormData.key,
+      txnid: payuFormData.txnid,
+      amount: payuFormData.amount,
+      productinfo: payuFormData.productinfo,
+      firstname: payuFormData.firstname,
+      email: payuFormData.email,
+      phone: payuFormData.phone,
+      surl: payuFormData.surl,
+      furl: payuFormData.furl,
+      hash: payuFormData.hash,
+      udf1: payuFormData.udf1 || '',
+    }
+
+    const handlers = {
+      catchException: function (BOLT) {
+        console.log('PayU exception:', BOLT)
+        setError('Payment failed. Please try again.')
+        setPayProcessing(false)
+      },
+      responseHandler: function (BOLT) {
+        if (BOLT.response.txnStatus === 'SUCCESS') {
+          clearCart()
+          setPayProcessing(false)
+          navigate('/order/confirm', {
+            state: {
+              order: orderData,
+              payu: BOLT.response,
+            },
+          })
+        } else if (BOLT.response.txnStatus === 'FAILED') {
+          setError('Payment failed. Please try again.')
+          setPayProcessing(false)
+        } else if (BOLT.response.txnStatus === 'CANCEL') {
+          setError('Payment was cancelled.')
+          setPayProcessing(false)
+        } else {
+          setError('Payment could not be completed. Please try again.')
+          setPayProcessing(false)
+        }
+      },
+    }
+
+    window.Bolt.launch(data, handlers)
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitting(true)
@@ -122,8 +146,9 @@ export default function Checkout() {
       const orderData = data.order
 
       if (paymentMethod === 'online' && data.payu_form_data) {
-        clearCart()
-        setPayuFormData(data.payu_form_data)
+        setSubmitting(false)
+        setPayProcessing(true)
+        launchPayUPopup(data.payu_form_data, orderData)
         return
       }
 
@@ -134,6 +159,15 @@ export default function Checkout() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (payProcessing) {
+    return (
+      <div className="max-w-3xl mx-auto px-5 py-24 text-center">
+        <p className="text-paper font-mono text-sm mb-6">Processing payment…</p>
+        <p className="text-slate font-mono text-xs">Please complete the payment in the popup window. Do not close this page.</p>
+      </div>
+    )
   }
 
   return (
@@ -182,7 +216,7 @@ export default function Checkout() {
               </label>
             )}
             {paymentMethod === 'online' && (
-              <p className="font-mono text-[11px] text-slate">You will be redirected to PayU's secure payment page.</p>
+              <p className="font-mono text-[11px] text-slate">A secure PayU popup will appear to complete your payment.</p>
             )}
             {paymentMethod === 'cod' && (
               <p className="font-mono text-[11px] text-slate">Pay with cash when your order arrives.</p>

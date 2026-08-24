@@ -8,15 +8,15 @@ export default function OrderConfirmation() {
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const orderFromState = location.state?.order
+  const payuFromBolt = location.state?.payu
 
-  const payuStatus = searchParams.get('status')
-  const payuTxnid = searchParams.get('txnid')
-  const orderId = searchParams.get('order_number') || payuTxnid
+  const payuStatus = payuFromBolt?.status || searchParams.get('status')
+  const payuTxnid = payuFromBolt?.txnid || searchParams.get('txnid')
+  const orderId = orderFromState?.order_number || searchParams.get('order_number') || payuTxnid
 
   const [order, setOrder] = useState(orderFromState || null)
   const [paymentVerified, setPaymentVerified] = useState(null)
 
-  // If we landed via PayU redirect, fetch the order + verify
   useEffect(() => {
     if (!orderId || order) return
     client.get(`/api/orders/${orderId}`).then((res) => {
@@ -24,15 +24,16 @@ export default function OrderConfirmation() {
     }).catch(() => {})
   }, [orderId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Verify online payment
   useEffect(() => {
-    if (!payuTxnid || paymentVerified !== null) return
-    client.post(`/api/payu/verify/${payuTxnid}`).then((res) => {
+    const txnid = order?.order_number || payuTxnid
+    if (!txnid || paymentVerified !== null) return
+    if (order?.payment_method !== 'online' && !payuFromBolt) return
+    client.post(`/api/payu/verify/${txnid}`).then((res) => {
       setPaymentVerified(res.data.verified)
     }).catch(() => {
       setPaymentVerified(false)
     })
-  }, [payuTxnid, paymentVerified])
+  }, [order, payuTxnid, payuFromBolt, paymentVerified])
 
   if (!order) {
     return (
@@ -46,8 +47,9 @@ export default function OrderConfirmation() {
   const nameParts = (order.customer_name || '').split(' ')
   const displayName = nameParts[0] || 'Customer'
 
-  const isOnlinePayment = order.payment_method === 'online'
-  const paymentFailed = payuStatus === 'failure' || paymentVerified === false || order.status === 'cancelled'
+  const isOnlinePayment = order.payment_method === 'online' || !!payuFromBolt
+  const boltSuccess = payuFromBolt?.status === 'SUCCESS'
+  const paymentFailed = !boltSuccess && (payuStatus === 'failure' || paymentVerified === false || order.status === 'cancelled')
 
   return (
     <div className="max-w-2xl mx-auto px-5 sm:px-8 py-16 sm:py-24">
@@ -101,7 +103,7 @@ export default function OrderConfirmation() {
               <p>{order.shipping_address}</p>
               <p>{order.city} {order.state} {order.pincode}</p>
               <p className="font-mono text-xs text-slate mt-2">{order.customer_phone} · {order.customer_email}</p>
-              <p className="font-mono text-xs text-slate mt-1">Payment: {order.payment_method === 'online' ? 'Online (PayU)' : 'Cash on Delivery'}</p>
+              <p className="font-mono text-xs text-slate mt-1">Payment: {isOnlinePayment ? 'Online (PayU)' : 'Cash on Delivery'}</p>
             </div>
 
             <div className="flex flex-wrap gap-4">
