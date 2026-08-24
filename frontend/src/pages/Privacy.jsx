@@ -3,178 +3,302 @@ export default function Privacy() {
     <div className="max-w-3xl mx-auto px-5 sm:px-8 py-16 sm:py-24">
       <p className="font-mono text-xs text-riot tracking-widest uppercase mb-4">Legal</p>
       <h1 className="font-display text-4xl sm:text-5xl uppercase text-paper mb-4 leading-tight">
-        Privacy &amp; Refund Policy
+        Privacy &amp; Policies
       </h1>
       <p className="font-mono text-xs text-slate mb-10">Effective date: August 21, 2026</p>
 
       <div className="space-y-8 text-paper/75 text-sm sm:text-base leading-relaxed">
         {/* ── PRIVACY POLICY ── */}
         <section>
-          <h2 className="font-display text-xl uppercase text-paper mb-3">1. Information We Collect</h2>
+          <h2 className="font-display text-xl uppercase text-paper mb-3">Privacy Policy</h2>
+        </section>
+
+        <section>
+          <h2 className="font-display text-xl uppercase text-paper mb-3">Introduction</h2>
           <p>
-            When you place an order on Loopstitch Co., we collect the following personal information:
+            This Privacy Policy describes how 6238860673 and its affiliates (collectively "6238860673,
+            we, our, us") collect, use, share, protect or otherwise process your information / personal
+            data through our website http://loopstitch.online/ (hereinafter referred to as Platform).
+            Please note that you may be able to browse certain sections of the Platform without
+            registering with us. We do not offer any product/service under this Platform outside India
+            and your personal data will primarily be stored and processed in India.
           </p>
-          <ul className="list-disc list-inside mt-2 space-y-1">
-            <li>Full name</li>
-            <li>Email address</li>
-            <li>Phone number</li>
-            <li>Shipping address (including city, state, and pincode)</li>
-          </ul>
           <p className="mt-3">
-            We also automatically collect certain information when you visit our website, including your
-            IP address, browser type, device type, pages visited, and time spent on pages, through
-            standard web server logs.
+            By visiting this Platform, providing your information or availing any product/service offered
+            on the Platform, you expressly agree to be bound by the terms and conditions of this Privacy
+            Policy, the Terms of Use and the applicable service/product terms and conditions, and agree
+            to be governed by the laws of India including but not limited to the laws applicable to data
+            protection and privacy. If you do not agree please do not use or access our Platform.
           </p>
         </section>
 
         <section>
-          <h2 className="font-display text-xl uppercase text-paper mb-3">2. How We Use Your Information</h2>
-          <p>We use the information we collect to:</p>
-          <ul className="list-disc list-inside mt-2 space-y-1">
-            <li>Process and fulfill your orders</li>
-            <li>Send order confirmations and shipping updates</li>
-            <li>Communicate with you about your order or inquiries</li>
-            <li>Improve our website, products, and services</li>
-            <li>Detect and prevent fraud or unauthorized access</li>
-          </ul>
-        </section>
-
-        <section>
-          <h2 className="font-display text-xl uppercase text-paper mb-3">3. Information Sharing</h2>
+          <h2 className="font-display text-xl uppercase text-paper mb-3">Collection</h2>
           <p>
-            We do not sell, trade, or rent your personal information to third parties. We may share
-            your information only in the following circumstances:
+            We collect your personal data when you use our Platform, services or otherwise interact with
+            us during the course of our relationship and related information provided from time to time.
+            Some of the information that we may collect includes but is not limited to personal data /
+            information provided to us during sign-up/registering or using our Platform such as name,
+            date of birth, address, telephone/mobile number, email ID and/or any such information
+            shared as proof of identity or address.
           </p>
-          <ul className="list-disc list-inside mt-2 space-y-1">
-            <li>With shipping carriers to deliver your order (e.g., name, address, phone number)</li>
-            <li>With payment processors to complete transactions</li>
-            <li>When required by law or to protect our legal rights</li>
-          </ul>
-        </section>
-
-        <section>
-          <h2 className="font-display text-xl uppercase text-paper mb-3">4. Data Security</h2>
-          <p>
-            We implement appropriate technical and organizational measures to protect your personal
-            information against unauthorized access, alteration, disclosure, or destruction. However,
-            no method of transmission over the internet is 100% secure, and we cannot guarantee
-            absolute security.
+          <p className="mt-3">
+            Some of the sensitive personal data may be collected with your consent, such as your bank
+            account or credit or debit card or other payment instrument information or biometric
+            information such as your facial features or physiological information (in order to enable use
+            of certain features when opted for, available on the Platform) etc all of the above being in
+            accordance with applicable law(s). You always have the option to not provide information, by
+            choosing not to use a particular service or feature on the Platform.
           </p>
-        </section>
-
-        <section>
-          <h2 className="font-display text-xl uppercase text-paper mb-3">5. Data Retention</h2>
-          <p>
-            We retain your personal information only for as long as necessary to fulfill the purposes
-            outlined in this policy, unless a longer retention period is required or permitted by law.
-            Order-related data is retained for a minimum of 3 years for tax and accounting purposes.
+          <p className="mt-3">
+            We may track your behaviour, preferences, and other information that you choose to provide
+            on our Platform. This information is compiled and analysed on an aggregated basis. We will
+            also collect your information related to your transactions on Platform and such third-party
+            business partner platforms. When such a third-party business partner collects your personal
+            data directly from you, you will be governed by their privacy policies.
           </p>
-        </section>
-
-        <section>
-          <h2 className="font-display text-xl uppercase text-paper mb-3">6. Cookies &amp; Tracking</h2>
-          <p>
-            Our website uses essential cookies to maintain functionality (e.g., cart persistence, theme
-            preference). We do not use third-party advertising cookies or tracking technologies. You may
-            disable cookies in your browser settings, though some features may not function properly.
+          <p className="mt-3">
+            We shall not be responsible for the third-party business partner's privacy practices or the
+            content of their privacy policies, and we request you to read their privacy policies prior to
+            disclosing any information. If you receive an email, a call from a person/association claiming
+            to be 6238860673 seeking any personal data like debit/credit card PIN, net-banking or mobile
+            banking password, we request you to never provide such information. If you have already
+            revealed such information, report it immediately to an appropriate law enforcement agency.
           </p>
         </section>
 
         <section>
-          <h2 className="font-display text-xl uppercase text-paper mb-3">7. Your Rights</h2>
+          <h2 className="font-display text-xl uppercase text-paper mb-3">Usage</h2>
           <p>
-            You have the right to access, correct, or delete your personal information. To exercise
-            these rights, please contact us at{' '}
-            <a href="mailto:hello@loopstitch.online" className="text-acid hover:text-riot transition-colors">
-              hello@loopstitch.online
-            </a>.
-            We will respond to your request within 30 days.
+            We use personal data to provide the services you request. To the extent we use your personal
+            data to market to you, we will provide you the ability to opt-out of such uses. We use your
+            personal data to assist sellers and business partners in handling and fulfilling orders;
+            enhancing customer experience; to resolve disputes; troubleshoot problems; inform you about
+            online and offline offers, products, services, and updates; customise your experience; detect
+            and protect us against error, fraud and other criminal activity; enforce our terms and
+            conditions; conduct marketing research, analysis and surveys; and as otherwise described to
+            you at the time of collection of information.
+          </p>
+          <p className="mt-3">
+            You understand that your access to these products/services may be affected in the event
+            permission is not provided to us.
           </p>
         </section>
 
         <section>
-          <h2 className="font-display text-xl uppercase text-paper mb-3">8. Changes to This Policy</h2>
+          <h2 className="font-display text-xl uppercase text-paper mb-3">Sharing</h2>
           <p>
-            We may update this Privacy Policy from time to time. Any changes will be posted on this page
-            with an updated effective date. Your continued use of the website after changes are posted
-            constitutes acceptance of the updated policy.
+            We may share your personal data internally within our group entities, our other corporate
+            entities, and affiliates to provide you access to the services and products offered by them.
+            These entities and affiliates may market to you as a result of such sharing unless you
+            explicitly opt-out. We may disclose personal data to third parties such as sellers, business
+            partners, third party service providers including logistics partners, prepaid payment
+            instrument issuers, third-party reward programs and other payment opted by you.
+          </p>
+          <p className="mt-3">
+            These disclosure may be required for us to provide you access to our services and products
+            offered to you, to comply with our legal obligations, to enforce our user agreement, to
+            facilitate our marketing and advertising activities, to prevent, detect, mitigate, and
+            investigate fraudulent or illegal activities related to our services.
+          </p>
+          <p className="mt-3">
+            We may disclose personal and sensitive personal data to government agencies or other
+            authorised law enforcement agencies if required to do so by law or in the good faith belief
+            that such disclosure is reasonably necessary to respond to subpoenas, court orders, or other
+            legal process. We may disclose personal data to law enforcement offices, third party rights
+            owners, or others in the good faith belief that such disclosure is reasonably necessary to:
+            enforce our Terms of Use or Privacy Policy; respond to claims that an advertisement, posting
+            or other content violates the rights of a third party; or protect the rights, property or
+            personal safety of our users or the general public.
           </p>
         </section>
 
-        {/* ── REFUND POLICY ── */}
+        <section>
+          <h2 className="font-display text-xl uppercase text-paper mb-3">Security Precautions</h2>
+          <p>
+            To protect your personal data from unauthorised access or disclosure, loss or misuse we
+            adopt reasonable security practices and procedures. Once your information is in our
+            possession or whenever you access your account information, we adhere to our security
+            guidelines to protect it against unauthorised access and offer the use of a secure server.
+            However, the transmission of information is not completely secure for reasons beyond our
+            control. By using the Platform, the users accept the security implications of data
+            transmission over the internet and the World Wide Web which cannot always be guaranteed as
+            completely secure, and therefore, there would always remain certain inherent risks regarding
+            use of the Platform. Users are responsible for ensuring the protection of login and password
+            records for their account.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="font-display text-xl uppercase text-paper mb-3">Data Deletion and Retention</h2>
+          <p>
+            You have an option to delete your account by visiting your profile and settings on our
+            Platform, this action would result in you losing all information related to your account. You
+            may also write to us at the contact information provided below to assist you with these
+            requests. We may in event of any pending grievance, claims, pending shipments or any other
+            services we may refuse or delay deletion of the account. Once the account is deleted, you
+            will lose access to the account.
+          </p>
+          <p className="mt-3">
+            We retain your personal data information for a period no longer than is required for the
+            purpose for which it was collected or as required under any applicable law. However, we may
+            retain data related to you if we believe it may be necessary to prevent fraud or future
+            abuse or for other legitimate purposes. We may continue to retain your data in anonymised
+            form for analytical and research purposes.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="font-display text-xl uppercase text-paper mb-3">Your Rights</h2>
+          <p>
+            You may access, rectify, and update your personal data directly through the functionalities
+            provided on the Platform.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="font-display text-xl uppercase text-paper mb-3">Consent</h2>
+          <p>
+            By visiting our Platform or by providing your information, you consent to the collection,
+            use, storage, disclosure and otherwise processing of your information on the Platform in
+            accordance with this Privacy Policy. If you disclose to us any personal data relating to
+            other people, you represent that you have the authority to do so and permit us to use the
+            information in accordance with this Privacy Policy.
+          </p>
+          <p className="mt-3">
+            You, while providing your personal data over the Platform or any partner platforms or
+            establishments, consent to us (including our other corporate entities, affiliates, lending
+            partners, technology partners, marketing channels, business partners and other third
+            parties) to contact you through SMS, instant messaging apps, call and/or e-mail for the
+            purposes specified in this Privacy Policy. You have an option to withdraw your consent that
+            you have already provided by writing to the Grievance Officer at the contact information
+            provided below. Please mention "Withdrawal of consent for processing personal data" in your
+            subject line of your communication.
+          </p>
+          <p className="mt-3">
+            We may verify such requests before acting on our request. However, please note that your
+            withdrawal of consent will not be retrospective and will be in accordance with the Terms of
+            Use, this Privacy Policy, and applicable laws. In the event you withdraw consent given to us
+            under this Privacy Policy, we reserve the right to restrict or deny the provision of our
+            services for which we consider such information to be necessary.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="font-display text-xl uppercase text-paper mb-3">Changes to this Privacy Policy</h2>
+          <p>
+            Please check our Privacy Policy periodically for changes. We may update this Privacy Policy
+            to reflect changes to our information practices. We may alert / notify you about the
+            significant changes to the Privacy Policy, in the manner as may be required under applicable
+            laws.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="font-display text-xl uppercase text-paper mb-3">Grievance Officer</h2>
+          <p>
+            Name of the Office: Loopstitch<br />
+            Designation: Grievance Officer<br />
+            Name and Address of the Company: Loopstitch, Moolad, Naduvannur, Calicut 673614
+          </p>
+          <p className="mt-3">
+            Contact us:<br />
+            Phone: +91 6238860673<br />
+            Time: Monday - Friday (9:00 - 18:00)
+          </p>
+        </section>
+
+        {/* ── REFUND AND CANCELLATION POLICY ── */}
         <hr className="cutline my-12" />
 
         <section>
-          <h2 className="font-display text-2xl uppercase text-paper mb-3">Refund Policy</h2>
+          <h2 className="font-display text-2xl uppercase text-paper mb-3">Refund and Cancellation Policy</h2>
         </section>
 
         <section>
-          <h2 className="font-display text-xl uppercase text-paper mb-3">9. Eligibility for Refunds</h2>
           <p>
-            We offer refunds only in the following situations:
+            This refund and cancellation policy outlines how you can cancel or seek a refund for a
+            product / service that you have purchased through the Platform. Under this policy:
           </p>
-          <ul className="list-disc list-inside mt-2 space-y-1">
-            <li>The product received is defective (e.g., printing errors, fabric defects)</li>
-            <li>The product received is damaged during shipping</li>
-            <li>The wrong product or size was delivered</li>
-          </ul>
+          <ol className="list-decimal list-inside mt-2 space-y-2">
+            <li>
+              Cancellations will only be considered if the request is made within 10 days of placing
+              the order. However, cancellation requests may not be entertained if the orders have been
+              communicated to such sellers / merchant(s) listed on the Platform and they have initiated
+              the process of shipping them, or the product is out for delivery. In such an event, you
+              may choose to reject the product at the doorstep.
+            </li>
+            <li>
+              6238860673 does not accept cancellation requests for perishable items like flowers,
+              eatables, etc. However, the refund / replacement can be made if the user establishes that
+              the quality of the product delivered is not good.
+            </li>
+            <li>
+              In case of receipt of damaged or defective items, please report to our customer service
+              team. The request would be entertained once the seller/ merchant listed on the Platform,
+              has checked and determined the same at its own end. This should be reported within 10
+              days of receipt of products. In case you feel that the product received is not as shown on
+              the site or as per your expectations, you must bring it to the notice of our customer
+              service within 10 days of receiving the product. The customer service team after looking
+              into your complaint will take an appropriate decision.
+            </li>
+            <li>
+              In case of complaints regarding the products that come with a warranty from the
+              manufacturers, please refer the issue to them.
+            </li>
+            <li>
+              In case of any refunds approved by 6238860673, it will take 14 days for the refund to be
+              processed to you.
+            </li>
+          </ol>
+        </section>
+
+        {/* ── RETURN POLICY ── */}
+        <hr className="cutline my-12" />
+
+        <section>
+          <h2 className="font-display text-2xl uppercase text-paper mb-3">Return Policy</h2>
+        </section>
+
+        <section>
+          <p>
+            We offer refund / exchange within first 10 days from the date of your purchase. If 10 days
+            have passed since your purchase, you will not be offered a return, exchange or refund of any
+            kind. In order to become eligible for a return or an exchange, (i) the purchased item should
+            be unused and in the same condition as you received it, (ii) the item must have original
+            packaging, (iii) if the item that you purchased on a sale, then the item may not be eligible
+            for a return / exchange. Further, only such items are replaced by us (based on an exchange
+            request), if such items are found defective or damaged.
+          </p>
           <p className="mt-3">
-            Due to the made-to-order and limited-edition nature of our products, we do not offer refunds
-            for change of mind, incorrect size selection by the customer, or buyer's remorse.
+            You agree that there may be a certain category of products / items that are exempted from
+            returns or refunds. Such categories of the products would be identified to you at the time
+            of purchase. For exchange / return accepted request(s) (as applicable), once your returned
+            product / item is received and inspected by us, we will send you an email to notify you
+            about receipt of the returned / exchanged product. Further, if the same has been approved
+            after the quality check at our end, your request (i.e. return / exchange) will be processed
+            in accordance with our policies.
           </p>
         </section>
 
+        {/* ── SHIPPING POLICY ── */}
+        <hr className="cutline my-12" />
+
         <section>
-          <h2 className="font-display text-xl uppercase text-paper mb-3">10. How to Request a Refund</h2>
+          <h2 className="font-display text-2xl uppercase text-paper mb-3">Shipping Policy</h2>
+        </section>
+
+        <section>
           <p>
-            To request a refund, please email us at{' '}
-            <a href="mailto:hello@loopstitch.online" className="text-acid hover:text-riot transition-colors">
-              hello@loopstitch.online
-            </a>{' '}
-            within <strong className="text-paper">7 days of delivery</strong> with the following information:
-          </p>
-          <ul className="list-disc list-inside mt-2 space-y-1">
-            <li>Your order number</li>
-            <li>A description of the issue</li>
-            <li>Photographic evidence of the defect, damage, or incorrect item</li>
-          </ul>
-          <p className="mt-3">
-            Requests received after 7 days of delivery will not be eligible for a refund.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="font-display text-xl uppercase text-paper mb-3">11. Refund Process</h2>
-          <p>
-            Once we verify the issue and confirm eligibility, we will initiate a refund to your original
-            payment method. Refunds are processed within <strong className="text-paper">7–10 business
-            days</strong> from the date of approval. You will receive an email confirmation once the
-            refund has been processed.
-          </p>
-          <p className="mt-3">
-            In some cases, we may offer a replacement or store credit instead of a monetary refund, at
-            our discretion.
-          </p>
-        </section>
-
-        <section>
-          <h2 className="font-display text-xl uppercase text-paper mb-3">12. Non-Refundable Items</h2>
-          <p>The following are not eligible for refunds:</p>
-          <ul className="list-disc list-inside mt-2 space-y-1">
-            <li>Products returned without prior authorization from us</li>
-            <li>Products that have been worn, washed, altered, or damaged by the customer</li>
-            <li>Requests made after the 7-day return window</li>
-            <li>Items purchased during clearance or final-sale drops (if applicable)</li>
-          </ul>
-        </section>
-
-        <section>
-          <h2 className="font-display text-xl uppercase text-paper mb-3">13. Contact for Refunds</h2>
-          <p>
-            For any refund-related questions, please reach out to us at{' '}
-            <a href="mailto:hello@loopstitch.online" className="text-acid hover:text-riot transition-colors">
-              hello@loopstitch.online
-            </a>.
+            The orders for the user are shipped through registered domestic courier companies and/or
+            speed post only. Orders are shipped within 3 days from the date of the order and/or payment
+            or as per the delivery date agreed at the time of order confirmation and delivering of the
+            shipment, subject to courier company / post office norms. Platform Owner shall not be
+            liable for any delay in delivery by the courier company / postal authority. Delivery of all
+            orders will be made to the address provided by the buyer at the time of purchase. Delivery
+            of our services will be confirmed on your email ID as specified at the time of registration.
+            If there are any shipping cost(s) levied by the seller or the Platform Owner (as the case
+            may be), the same is not refundable.
           </p>
         </section>
       </div>
