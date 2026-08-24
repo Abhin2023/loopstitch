@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
 import client from '../api/client'
 import { useCart } from '../context/CartContext'
@@ -8,6 +8,20 @@ import { formatINR } from '../utils/format'
 const initialForm = {
   customer_name: '', customer_email: '', customer_phone: '',
   shipping_address: '', city: '', state: '', pincode: '',
+}
+
+function loadPayuScript(isTest) {
+  return new Promise((resolve, reject) => {
+    if (window.Bolt) { resolve(true); return }
+    const existing = document.querySelector('script[data-payu-bolt]')
+    if (existing) { existing.addEventListener('load', () => resolve(true)); existing.addEventListener('error', () => reject(new Error('load failed'))); return }
+    const script = document.createElement('script')
+    script.src = isTest ? 'https://jssdk-uat.payu.in/bolt/bolt.min.js' : 'https://jssdk.payu.in/bolt/bolt.min.js'
+    script.setAttribute('data-payu-bolt', '1')
+    script.onload = () => resolve(true)
+    script.onerror = () => reject(new Error('Failed to load PayU SDK'))
+    document.head.appendChild(script)
+  })
 }
 
 export default function Checkout() {
@@ -25,12 +39,15 @@ export default function Checkout() {
   const [error, setError] = useState(null)
   const [paymentMethod, setPaymentMethod] = useState('online')
   const [codEnabled, setCodEnabled] = useState(false)
+  const [payuTestMode, setPayuTestMode] = useState(true)
   const [payProcessing, setPayProcessing] = useState(false)
 
   useEffect(() => {
     client.get('/api/settings/checkout').then((res) => {
       const codOn = res.data.cod_enabled
+      const testMode = res.data.payu_test_mode !== false
       setCodEnabled(codOn)
+      setPayuTestMode(testMode)
       if (!codOn) setPaymentMethod('online')
     }).catch(() => {})
   }, [])
@@ -75,60 +92,55 @@ export default function Checkout() {
     setCouponError(null)
   }
 
-  const launchPayUPopup = (payuFormData, orderData) => {
-    const boltLoaded = typeof window.Bolt !== 'undefined'
+  const launchPayUPopup = useCallback((payuFormData, orderData) => {
+    loadPayuScript(payuTestMode).then(() => {
+      const data = {
+        key: payuFormData.key,
+        txnid: payuFormData.txnid,
+        amount: payuFormData.amount,
+        productinfo: payuFormData.productinfo,
+        firstname: payuFormData.firstname,
+        email: payuFormData.email,
+        phone: payuFormData.phone,
+        surl: payuFormData.surl,
+        furl: payuFormData.furl,
+        hash: payuFormData.hash,
+        udf1: payuFormData.udf1 || '',
+      }
 
-    if (!boltLoaded) {
-      setError('Payment module failed to load. Please refresh and try again.')
-      setPayProcessing(false)
-      return
-    }
-
-    const data = {
-      key: payuFormData.key,
-      txnid: payuFormData.txnid,
-      amount: payuFormData.amount,
-      productinfo: payuFormData.productinfo,
-      firstname: payuFormData.firstname,
-      email: payuFormData.email,
-      phone: payuFormData.phone,
-      surl: payuFormData.surl,
-      furl: payuFormData.furl,
-      hash: payuFormData.hash,
-      udf1: payuFormData.udf1 || '',
-    }
-
-    const handlers = {
-      catchException: function (BOLT) {
-        console.log('PayU exception:', BOLT)
-        setError('Payment failed. Please try again.')
-        setPayProcessing(false)
-      },
-      responseHandler: function (BOLT) {
-        if (BOLT.response.txnStatus === 'SUCCESS') {
-          clearCart()
-          setPayProcessing(false)
-          navigate('/order/confirm', {
-            state: {
-              order: orderData,
-              payu: BOLT.response,
-            },
-          })
-        } else if (BOLT.response.txnStatus === 'FAILED') {
+      const handlers = {
+        catchException: function (BOLT) {
+          console.log('PayU exception:', BOLT)
           setError('Payment failed. Please try again.')
           setPayProcessing(false)
-        } else if (BOLT.response.txnStatus === 'CANCEL') {
-          setError('Payment was cancelled.')
-          setPayProcessing(false)
-        } else {
-          setError('Payment could not be completed. Please try again.')
-          setPayProcessing(false)
-        }
-      },
-    }
+        },
+        responseHandler: function (BOLT) {
+          if (BOLT.response.txnStatus === 'SUCCESS') {
+            clearCart()
+            setPayProcessing(false)
+            navigate('/order/confirm', {
+              state: { order: orderData, payu: BOLT.response },
+            })
+          } else if (BOLT.response.txnStatus === 'FAILED') {
+            setError('Payment failed. Please try again.')
+            setPayProcessing(false)
+          } else if (BOLT.response.txnStatus === 'CANCEL') {
+            setError('Payment was cancelled.')
+            setPayProcessing(false)
+          } else {
+            setError('Payment could not be completed. Please try again.')
+            setPayProcessing(false)
+          }
+        },
+      }
 
-    window.Bolt.launch(data, handlers)
-  }
+      window.Bolt.launch(data, handlers)
+    }).catch((err) => {
+      console.error('PayU SDK load error:', err)
+      setError('Payment module failed to load. Please refresh and try again.')
+      setPayProcessing(false)
+    })
+  }, [payuTestMode, clearCart, navigate])
 
   const handleSubmit = async (e) => {
     e.preventDefault()

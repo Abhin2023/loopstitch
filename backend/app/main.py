@@ -571,6 +571,7 @@ def public_checkout_settings(db: Session = Depends(get_db)):
     raw = _get_all_settings(db)
     return schemas.PublicCheckoutSettings(
         cod_enabled=raw.get("cod_enabled", "false") == "true",
+        payu_test_mode=raw.get("payu_test_mode", "true") == "true",
     )
 
 

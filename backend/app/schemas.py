@@ -283,3 +283,4 @@ class PublicShippingSettings(BaseModel):
 
 class PublicCheckoutSettings(BaseModel):
     cod_enabled: bool
+    payu_test_mode: bool = True
