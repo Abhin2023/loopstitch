@@ -13,23 +13,32 @@ export default function LoginModal({ open, onClose }) {
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [cooldown, setCooldown] = useState(0)
-  const timerRef = useRef(null)
+  const intervalRef = useRef(null)
 
   useEffect(() => {
     if (cooldown > 0) {
-      timerRef.current = setTimeout(() => setCooldown((c) => c - 1), 1000)
-      return () => clearTimeout(timerRef.current)
+      intervalRef.current = setInterval(() => {
+        setCooldown((c) => {
+          if (c <= 1) {
+            clearInterval(intervalRef.current)
+            return 0
+          }
+          return c - 1
+        })
+      }, 1000)
+      return () => clearInterval(intervalRef.current)
     }
-  }, [cooldown])
+  }, [cooldown === RESEND_COOLDOWN])
 
   useEffect(() => {
     if (!open) {
       setCooldown(0)
-      clearTimeout(timerRef.current)
+      clearInterval(intervalRef.current)
     }
   }, [open])
 
   const startCooldown = useCallback(() => {
+    clearInterval(intervalRef.current)
     setCooldown(RESEND_COOLDOWN)
   }, [])
 
@@ -95,7 +104,7 @@ export default function LoginModal({ open, onClose }) {
     setSuccess(false)
     setLoading(false)
     setCooldown(0)
-    clearTimeout(timerRef.current)
+    clearInterval(intervalRef.current)
   }
 
   const handleClose = () => {
@@ -135,7 +144,7 @@ export default function LoginModal({ open, onClose }) {
                       type="tel"
                       value={phone}
                       onChange={(e) => { setPhone(e.target.value.replace(/\D/g, '').slice(0, 10)); setError(null) }}
-                      placeholder="e.g. 6238860673"
+                      placeholder="98765 43210"
                       maxLength={10}
                       required
                       className="w-full bg-panel border border-panel-2 px-3.5 py-2.5 text-sm text-paper focus:border-acid outline-none font-mono"
@@ -182,17 +191,18 @@ export default function LoginModal({ open, onClose }) {
                   </button>
 
                   {/* Resend OTP / Countdown */}
-                  <div className="text-center">
+                  <div className="text-center pt-1">
                     {cooldown > 0 ? (
-                      <p className="font-mono text-[11px] text-slate">
-                        Resend code in <span className="text-paper">{cooldown}s</span>
+                      <p className="font-mono text-xs text-slate">
+                        Resend code in{' '}
+                        <span className="text-paper font-semibold">{cooldown}s</span>
                       </p>
                     ) : (
                       <button
                         type="button"
                         onClick={handleResendOTP}
                         disabled={loading}
-                        className="font-mono text-[11px] uppercase tracking-widest text-acid hover:underline disabled:opacity-50"
+                        className="font-mono text-xs uppercase tracking-widest text-acid hover:underline disabled:opacity-50"
                       >
                         {loading ? 'Sending…' : 'Resend OTP'}
                       </button>
@@ -201,7 +211,7 @@ export default function LoginModal({ open, onClose }) {
 
                   <button
                     type="button"
-                    onClick={() => { setStep('phone'); setOtp(''); setError(null); setCooldown(0); clearTimeout(timerRef.current) }}
+                    onClick={() => { setStep('phone'); setOtp(''); setError(null); setCooldown(0); clearInterval(intervalRef.current) }}
                     className="font-mono text-[11px] uppercase tracking-widest text-slate hover:text-paper w-full text-center"
                   >
                     ← Change phone number

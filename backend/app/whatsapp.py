@@ -85,10 +85,12 @@ def send_template_message(
             }
         ]
 
+    to_digits = "".join(c for c in phone if c.isdigit())
+
     payload = {
         "messaging_product": "whatsapp",
         "recipient_type": "individual",
-        "to": phone,
+        "to": to_digits,
         "type": "template",
         "template": {
             "name": template_name,
