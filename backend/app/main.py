@@ -12,9 +12,10 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 
 from . import models, schemas, auth
-from .database import engine, get_db
+from .database import engine, get_db, SessionLocal
 from .offers import compute_best_offer, get_shipping_config, set_setting, shipping_fee_for, validate_coupon, apply_coupon_discount
 from . import razorpay as razorpay_helper
+from . import whatsapp as whatsapp_helper
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -369,6 +370,9 @@ def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(order)
 
+    # Send WhatsApp order confirmation (best-effort — does not block checkout)
+    _send_whatsapp_notification(db, order)
+
     return {"order": schemas.OrderOut.model_validate(order).model_dump()}
 
 
@@ -610,6 +614,225 @@ def razorpay_verify_payment(payload: schemas.RazorpayVerifyRequest, db: Session 
     db.commit()
     db.refresh(order)
     return {"verified": True, "status": order.status.value}
+
+
+# ============================================================
+# WHATSAPP  (send order confirmation + webhook for status updates)
+# ============================================================
+def _build_items_summary(items: list) -> str:
+    """Build a human-readable items summary like '2 items — Ronin Wave Tee × 1, Elite Soldier Tee × 1'."""
+    total_qty = sum(i.quantity for i in items)
+    parts = [f"{i.product_name} × {i.quantity}" for i in items]
+    summary = ", ".join(parts[:3])
+    if len(items) > 3:
+        summary += f" +{len(items) - 3} more"
+    return f"{total_qty} item{'s' if total_qty != 1 else ''} — {summary}"
+
+
+def _build_payment_label(order) -> str:
+    if order.payment_method == "cod":
+        pct = order.cod_advance_percent or 10
+        return f"COD — {pct:.0f}% paid online"
+    return "Online (Razorpay)"
+
+
+def _send_whatsapp_notification(db: Session, order) -> None:
+    """Create a Notification record and send the WhatsApp template message."""
+    if not whatsapp_helper.is_configured():
+        return
+
+    items = db.query(models.OrderItem).filter(models.OrderItem.order_id == order.id).all()
+    items_summary = _build_items_summary(items)
+    payment_label = _build_payment_label(order)
+    total_str = f"₹{order.total:,.0f}"
+
+    phone = order.customer_phone
+    # Ensure E.164 format
+    phone_digits = "".join(c for c in phone if c.isdigit())
+    if not phone_digits.startswith("+"):
+        if len(phone_digits) == 10:
+            phone_digits = "+91" + phone_digits
+        else:
+            phone_digits = "+" + phone_digits
+
+    body_params = whatsapp_helper.build_order_confirmation_params(
+        customer_name=order.customer_name,
+        order_number=order.order_number,
+        items_summary=items_summary,
+        total=total_str,
+        payment_method=payment_label,
+    )
+
+    notification = models.Notification(
+        order_id=order.id,
+        order_number=order.order_number,
+        customer_name=order.customer_name,
+        customer_phone=phone_digits,
+        message_type="order_confirmation",
+        status="pending",
+    )
+    db.add(notification)
+    db.flush()
+
+    try:
+        result = whatsapp_helper.send_template_message(
+            phone=phone_digits,
+            template_name="order_confirmation",
+            language_code="en",
+            body_params=body_params,
+        )
+        notification.whatsapp_message_id = result.get("message_id", "")
+        notification.status = "sent"
+        notification.sent_at = _utcnow()
+    except Exception as exc:
+        notification.status = "failed"
+        notification.error_message = str(exc)[:500]
+        logger.warning("WhatsApp send failed for order %s: %s", order.order_number, exc)
+
+    db.commit()
+
+
+@app.post("/api/webhooks/whatsapp")
+async def whatsapp_webhook(request: Request):
+    """Meta Cloud API webhook — handles verification (GET) and status updates (POST)."""
+    # Webhook verification (GET request from Meta)
+    if request.method == "GET":
+        params = dict(request.query_params)
+        verify_token = params.get("hub.verify_token", "")
+        challenge = params.get("hub.challenge", "")
+        if verify_token == "loopstitch_webhook":
+            return Response(content=challenge, media_type="text/plain")
+        raise HTTPException(status_code=403, detail="Verification failed")
+
+    # Status update (POST request)
+    body = await request.json()
+    entry = body.get("entry", [{}])
+    if not entry:
+        return {"status": "ok"}
+
+    changes = entry[0].get("changes", [{}])
+    if not changes:
+        return {"status": "ok"}
+
+    value = changes[0].get("value", {})
+    statuses = value.get("statuses", [])
+    db = SessionLocal()
+    try:
+        for status_update in statuses:
+            msg_id = status_update.get("id", "")
+            new_status = status_update.get("status", "")
+            timestamp = status_update.get("timestamp", "")
+
+            if not msg_id:
+                continue
+
+            notification = db.query(models.Notification).filter(
+                models.Notification.whatsapp_message_id == msg_id
+            ).first()
+            if not notification:
+                continue
+
+            notification.status = new_status
+            if new_status == "delivered" and timestamp:
+                notification.delivered_at = datetime.datetime.fromtimestamp(int(timestamp), tz=datetime.timezone.utc).replace(tzinfo=None)
+            elif new_status == "read" and timestamp:
+                notification.read_at = datetime.datetime.fromtimestamp(int(timestamp), tz=datetime.timezone.utc).replace(tzinfo=None)
+            elif new_status == "failed":
+                errors = status_update.get("errors", [])
+                notification.error_message = str(errors)[:500] if errors else "Delivery failed"
+
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        logger.warning("WhatsApp webhook processing error: %s", exc)
+    finally:
+        db.close()
+
+    return {"status": "ok"}
+
+
+# ============================================================
+# ADMIN NOTIFICATIONS  (list + resend)
+# ============================================================
+@app.get("/api/admin/notifications", response_model=schemas.NotificationListResponse)
+def admin_list_notifications(
+    status_filter: Optional[str] = None,
+    page: int = 1,
+    per_page: int = 20,
+    db: Session = Depends(get_db),
+    current: models.Admin = Depends(auth.get_current_admin),
+):
+    q = db.query(models.Notification)
+    if status_filter:
+        q = q.filter(models.Notification.status == status_filter)
+    total = q.count()
+    items = q.order_by(models.Notification.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    return schemas.NotificationListResponse(items=items, total=total)
+
+
+@app.get("/api/admin/notifications/{notification_id}", response_model=schemas.NotificationOut)
+def admin_get_notification(
+    notification_id: int,
+    db: Session = Depends(get_db),
+    current: models.Admin = Depends(auth.get_current_admin),
+):
+    n = db.query(models.Notification).filter(models.Notification.id == notification_id).first()
+    if not n:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    return n
+
+
+@app.post("/api/admin/notifications/{notification_id}/resend", response_model=schemas.NotificationOut)
+def admin_resend_notification(
+    notification_id: int,
+    db: Session = Depends(get_db),
+    current: models.Admin = Depends(auth.get_current_admin),
+):
+    n = db.query(models.Notification).filter(models.Notification.id == notification_id).first()
+    if not n:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    if not whatsapp_helper.is_configured():
+        raise HTTPException(status_code=400, detail="WhatsApp is not configured")
+
+    order = db.query(models.Order).options(joinedload(models.Order.items)).filter(
+        models.Order.id == n.order_id
+    ).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Associated order not found")
+
+    items = order.items
+    items_summary = _build_items_summary(items)
+    payment_label = _build_payment_label(order)
+    total_str = f"₹{order.total:,.0f}"
+    body_params = whatsapp_helper.build_order_confirmation_params(
+        customer_name=order.customer_name,
+        order_number=order.order_number,
+        items_summary=items_summary,
+        total=total_str,
+        payment_method=payment_label,
+    )
+
+    n.status = "pending"
+    n.error_message = ""
+    db.flush()
+
+    try:
+        result = whatsapp_helper.send_template_message(
+            phone=n.customer_phone,
+            template_name="order_confirmation",
+            language_code="en",
+            body_params=body_params,
+        )
+        n.whatsapp_message_id = result.get("message_id", "")
+        n.status = "sent"
+        n.sent_at = _utcnow()
+    except Exception as exc:
+        n.status = "failed"
+        n.error_message = str(exc)[:500]
+
+    db.commit()
+    db.refresh(n)
+    return n
 
 
 # ============================================================

@@ -73,12 +73,22 @@ def ensure_columns() -> None:
                     add_column(conn, table, column)
 
 
+def ensure_notifications_table() -> None:
+    """Create notifications table if it does not exist."""
+    with engine.begin() as conn:
+        insp = sa.inspect(conn)
+        if "notifications" not in insp.get_table_names():
+            print("  + creating 'notifications' table")
+            models.Notification.__table__.create(bind=conn, checkfirst=True)
+
+
 def seed_settings() -> None:
     defaults = {
         "delivery_fee": "45",
         "free_shipping_threshold": "1000",
         "cod_advance_percent": "10",
         "cod_enabled": "false",
+        "whatsapp_enabled": "true",
     }
     db = SessionLocal()
     try:
@@ -97,11 +107,13 @@ def seed_settings() -> None:
 
 def main() -> None:
     print("Loopstitch migration")
-    print("1/3 creating missing tables...")
+    print("1/4 creating missing tables...")
     Base.metadata.create_all(bind=engine)
-    print("2/3 adding missing columns...")
+    print("2/4 ensuring notifications table...")
+    ensure_notifications_table()
+    print("3/4 adding missing columns...")
     ensure_columns()
-    print("3/3 seeding default settings...")
+    print("4/4 seeding default settings...")
     seed_settings()
     print("Done.")
 

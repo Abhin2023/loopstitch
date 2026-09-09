@@ -7,6 +7,7 @@ const LINKS = [
   { to: '/admin/offers', label: 'Offers' },
   { to: '/admin/coupons', label: 'Coupons' },
   { to: '/admin/orders', label: 'Orders' },
+  { to: '/admin/notifications', label: 'Notifications' },
   { to: '/admin/settings', label: 'Settings' },
 ]
 

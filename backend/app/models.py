@@ -178,3 +178,24 @@ class OrderItem(Base):
 
     order = relationship("Order", back_populates="items")
     product = relationship("Product", back_populates="order_items")
+
+
+class Notification(Base):
+    """WhatsApp notification sent for an order."""
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+    order_number = Column(String(40), nullable=False)
+    customer_name = Column(String(150), nullable=False)
+    customer_phone = Column(String(30), nullable=False)
+    message_type = Column(String(30), default="order_confirmation")
+    whatsapp_message_id = Column(String(200), default="")
+    status = Column(String(20), default="pending", index=True)  # pending / sent / delivered / read / failed
+    error_message = Column(Text, default="")
+    sent_at = Column(DateTime, nullable=True)
+    delivered_at = Column(DateTime, nullable=True)
+    read_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=_utcnow)
+
+    order = relationship("Order")

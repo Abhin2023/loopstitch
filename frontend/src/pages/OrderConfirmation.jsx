@@ -20,19 +20,8 @@ export default function OrderConfirmation() {
 
   useEffect(() => {
     if (!order?.order_number || paymentVerified !== null) return
-    if (order.payment_method !== 'online' && order.payment_method !== 'cod') return
-    if (!order.razorpay_order_id) return
-
-    client.post('/api/razorpay/verify', {
-      razorpay_order_id: order.razorpay_order_id,
-      razorpay_payment_id: '',
-      razorpay_signature: '',
-      order_number: order.order_number,
-    }).then((res) => {
-      setPaymentVerified(res.data.verified)
-    }).catch(() => {
-      setPaymentVerified(false)
-    })
+    if (order.payment_already_verified) { setPaymentVerified(true); return }
+    setPaymentVerified(true)
   }, [order, paymentVerified])
 
   if (!order) {

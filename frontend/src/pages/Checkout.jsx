@@ -123,7 +123,7 @@ export default function Checkout() {
           clearCart()
           setPayProcessing(false)
           navigate('/order/confirm', {
-            state: { order: { ...orderData, razorpay_order_id: response.razorpay_order_id } },
+            state: { order: { ...orderData, razorpay_order_id: response.razorpay_order_id, payment_already_verified: true } },
           })
         } catch {
           setError('Payment verification failed. Please contact support.')

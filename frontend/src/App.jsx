@@ -27,6 +27,7 @@ import AdminCoupons from './pages/admin/AdminCoupons'
 import AdminCouponForm from './pages/admin/AdminCouponForm'
 import AdminSettings from './pages/admin/AdminSettings'
 import AdminOrders from './pages/admin/AdminOrders'
+import AdminNotifications from './pages/admin/AdminNotifications'
 
 export default function App() {
   return (
@@ -65,6 +66,7 @@ export default function App() {
               <Route path="coupons/:id" element={<AdminCouponForm />} />
               <Route path="settings" element={<AdminSettings />} />
               <Route path="orders" element={<AdminOrders />} />
+              <Route path="notifications" element={<AdminNotifications />} />
               <Route path="*" element={<Navigate to="dashboard" replace />} />
             </Route>
           </Routes>

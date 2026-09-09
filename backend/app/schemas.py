@@ -129,9 +129,9 @@ class OrderOut(BaseModel):
     shipping_fee: float
     total: float
     payment_method: str = "cod"
-    razorpay_order_id: str = ""
-    cod_advance_paid: float = 0.0
-    cod_advance_percent: float = 0.0
+    razorpay_order_id: Optional[str] = ""
+    cod_advance_paid: Optional[float] = 0.0
+    cod_advance_percent: Optional[float] = 0.0
     created_at: datetime
     items: List[OrderItemOut] = []
 
@@ -288,3 +288,28 @@ class PublicCheckoutSettings(BaseModel):
     cod_enabled: bool
     cod_advance_percent: float = 10.0
     razorpay_key_id: str = ""
+
+
+# ---------- Notifications (WhatsApp) ----------
+class NotificationOut(BaseModel):
+    id: int
+    order_id: int
+    order_number: str
+    customer_name: str
+    customer_phone: str
+    status: str
+    message_type: str = "order_confirmation"
+    whatsapp_message_id: str = ""
+    error_message: str = ""
+    sent_at: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
+    read_at: Optional[datetime] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationListResponse(BaseModel):
+    items: List[NotificationOut]
+    total: int
