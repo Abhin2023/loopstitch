@@ -287,3 +287,4 @@ class PublicShippingSettings(BaseModel):
 class PublicCheckoutSettings(BaseModel):
     cod_enabled: bool
     cod_advance_percent: float = 10.0
+    razorpay_key_id: str = ""

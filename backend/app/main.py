@@ -526,6 +526,7 @@ def public_checkout_settings(db: Session = Depends(get_db)):
     return schemas.PublicCheckoutSettings(
         cod_enabled=raw.get("cod_enabled", "false") == "true",
         cod_advance_percent=float(raw.get("cod_advance_percent", "10")),
+        razorpay_key_id=razorpay_helper.get_key_id(),
     )
 
 

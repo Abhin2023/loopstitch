@@ -10,6 +10,14 @@ const initialForm = {
   shipping_address: '', city: '', state: '', pincode: '',
 }
 
+function normalizePhone(value) {
+  const digits = value.replace(/\D/g, '')
+  if (digits.length <= 10) return digits
+  if (digits.startsWith('91') && digits.length > 10) return digits.slice(-10)
+  if (digits.startsWith('0') && digits.length > 10) return digits.slice(-10)
+  return digits.slice(-10)
+}
+
 export default function Checkout() {
   const { items, subtotal, clearCart } = useCart()
   const navigate = useNavigate()
@@ -21,19 +29,20 @@ export default function Checkout() {
   const [couponLoading, setCouponLoading] = useState(false)
   const quote = useQuote(items, couponApplied?.code || couponFromCart || '')
   const [form, setForm] = useState(initialForm)
-  const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState(null)
-  const [paymentMethod, setPaymentMethod] = useState('online')
+  const [step, setStep] = useState('form')
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [payProcessing, setPayProcessing] = useState(false)
   const [codEnabled, setCodEnabled] = useState(false)
   const [codAdvancePercent, setCodAdvancePercent] = useState(10)
-  const [payProcessing, setPayProcessing] = useState(false)
+  const [razorpayKeyId, setRazorpayKeyId] = useState('')
 
   useEffect(() => {
     client.get('/api/settings/checkout').then((res) => {
-      const codOn = res.data.cod_enabled
-      setCodEnabled(codOn)
+      setCodEnabled(res.data.cod_enabled)
       setCodAdvancePercent(res.data.cod_advance_percent || 10)
-      if (!codOn) setPaymentMethod('online')
+      setRazorpayKeyId(res.data.razorpay_key_id || '')
     }).catch(() => {})
   }, [])
 
@@ -46,7 +55,14 @@ export default function Checkout() {
     )
   }
 
-  const handleChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    if (name === 'customer_phone') {
+      setForm((f) => ({ ...f, [name]: normalizePhone(value) }))
+    } else {
+      setForm((f) => ({ ...f, [name]: value }))
+    }
+  }
 
   const handleApplyCoupon = async () => {
     const code = couponCode.trim().toUpperCase()
@@ -83,16 +99,14 @@ export default function Checkout() {
       setPayProcessing(false)
       return
     }
-
-    const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID
-    if (!keyId) {
+    if (!razorpayKeyId) {
       setError('Payment is not configured. Please try again later.')
       setPayProcessing(false)
       return
     }
 
     const options = {
-      key: keyId,
+      key: razorpayKeyId,
       amount: Math.round(amountToPay * 100),
       currency: 'INR',
       name: 'Loopstitch Co.',
@@ -121,9 +135,7 @@ export default function Checkout() {
         email: form.customer_email,
         contact: form.customer_phone,
       },
-      theme: {
-        color: '#FF3B5C',
-      },
+      theme: { color: '#FF3B5C' },
       modal: {
         ondismiss: function () {
           setError('Payment was cancelled. Your order has not been placed.')
@@ -140,29 +152,40 @@ export default function Checkout() {
     rzp.open()
   }
 
-  const handleSubmit = async (e) => {
+  const handleCheckoutClick = (e) => {
     e.preventDefault()
+    setError(null)
+    if (!form.customer_name || !form.customer_phone || !form.customer_email || !form.shipping_address || !form.city || !form.state || !form.pincode) {
+      setError('Please fill in all required fields.')
+      return
+    }
+    if (form.customer_phone.length !== 10) {
+      setError('Please enter a valid 10-digit phone number.')
+      return
+    }
+    setShowPaymentModal(true)
+  }
+
+  const handlePaymentChoice = async (method) => {
+    setShowPaymentModal(false)
     setSubmitting(true)
     setError(null)
     try {
       const payload = {
         ...form,
-        payment_method: paymentMethod,
+        payment_method: method,
         coupon_code: couponApplied?.code || couponCode.trim().toUpperCase() || undefined,
         items: items.map((i) => ({ product_id: i.productId, size: i.size, quantity: i.quantity })),
       }
       const res = await client.post('/api/orders', payload)
-      const data = res.data
-      const orderData = data.order
+      const orderData = res.data.order
 
-      // Determine how much to charge via Razorpay
       let amountToPay = orderData.total
-      if (paymentMethod === 'cod') {
+      if (method === 'cod') {
         amountToPay = orderData.cod_advance_paid
       }
 
       if (amountToPay > 0) {
-        // Create Razorpay order for the amount to be paid
         setSubmitting(false)
         setPayProcessing(true)
         try {
@@ -178,11 +201,10 @@ export default function Checkout() {
         return
       }
 
-      // No online payment needed (shouldn't happen with current logic, but safe fallback)
       clearCart()
       navigate('/order/confirm', { state: { order: orderData } })
     } catch (err) {
-      setError(err.response?.data?.detail || 'Something went wrong placing your order. Please try again.')
+      setError(err.response?.data?.detail || 'Something went wrong. Please try again.')
     } finally {
       setSubmitting(false)
     }
@@ -197,7 +219,6 @@ export default function Checkout() {
     )
   }
 
-  // Calculate COD advance for display
   const codAdvanceAmount = quote ? Math.round(quote.total * codAdvancePercent / 100 * 100) / 100 : 0
   const codBalanceAmount = quote ? Math.round((quote.total - codAdvanceAmount) * 100) / 100 : 0
 
@@ -206,10 +227,10 @@ export default function Checkout() {
       <h1 className="font-display text-4xl uppercase text-paper mb-10">Checkout</h1>
 
       <div className="grid md:grid-cols-3 gap-10">
-        <form onSubmit={handleSubmit} className="md:col-span-2 space-y-5">
+        <form onSubmit={handleCheckoutClick} className="md:col-span-2 space-y-5">
           <div className="grid sm:grid-cols-2 gap-5">
             <Field label="Full name" name="customer_name" value={form.customer_name} onChange={handleChange} required />
-            <Field label="Phone" name="customer_phone" value={form.customer_phone} onChange={handleChange} required pattern="[0-9]{10}" title="Enter a valid 10-digit phone number" />
+            <Field label="Phone" name="customer_phone" value={form.customer_phone} onChange={handleChange} required maxLength={10} inputMode="numeric" />
           </div>
           <Field label="Email" name="customer_email" type="email" value={form.customer_email} onChange={handleChange} required />
           <Field label="Address" name="shipping_address" value={form.shipping_address} onChange={handleChange} required textarea />
@@ -217,51 +238,6 @@ export default function Checkout() {
             <Field label="City" name="city" value={form.city} onChange={handleChange} required />
             <Field label="State" name="state" value={form.state} onChange={handleChange} required />
             <Field label="Pincode" name="pincode" value={form.pincode} onChange={handleChange} required pattern="[0-9]{6}" title="Enter a valid 6-digit pincode" />
-          </div>
-
-          {/* Payment method */}
-          <div className="border border-panel-2 p-5 space-y-3">
-            <h2 className="font-mono text-xs uppercase tracking-widest text-acid">Payment method</h2>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="radio"
-                name="payment_method"
-                value="online"
-                checked={paymentMethod === 'online'}
-                onChange={() => setPaymentMethod('online')}
-                className="accent-acid"
-              />
-              <span className="font-mono text-sm text-paper">Pay online — Card / UPI / Wallet</span>
-            </label>
-            {codEnabled && (
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="radio"
-                  name="payment_method"
-                  value="cod"
-                  checked={paymentMethod === 'cod'}
-                  onChange={() => setPaymentMethod('cod')}
-                  className="accent-acid"
-                />
-                <span className="font-mono text-sm text-paper">Cash on Delivery</span>
-              </label>
-            )}
-            {paymentMethod === 'online' && (
-              <p className="font-mono text-[11px] text-slate">A secure Razorpay popup will appear to complete your payment.</p>
-            )}
-            {paymentMethod === 'cod' && (
-              <div className="space-y-1">
-                <p className="font-mono text-[11px] text-slate">
-                  Pay {codAdvancePercent}% online now via Razorpay, rest {100 - codAdvancePercent}% on delivery.
-                </p>
-                {quote && (
-                  <div className="font-mono text-[11px] text-paper/70 space-y-0.5 mt-2">
-                    <p>Advance online: <span className="text-acid">{formatINR(codAdvanceAmount)}</span></p>
-                    <p>Balance on delivery: <span className="text-paper">{formatINR(codBalanceAmount)}</span></p>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
           {error && (
@@ -273,7 +249,7 @@ export default function Checkout() {
             disabled={submitting}
             className="w-full sm:w-auto bg-riot text-ink font-mono text-sm uppercase tracking-widest px-8 py-3.5 hover:bg-acid transition-colors disabled:opacity-60"
           >
-            {submitting ? 'Placing order…' : paymentMethod === 'online' ? 'Place order · Pay online' : `Place order · Pay ${formatINR(codAdvanceAmount)} now`}
+            {submitting ? 'Placing order…' : 'Checkout'}
           </button>
         </form>
 
@@ -295,7 +271,6 @@ export default function Checkout() {
             </div>
           )}
 
-          {/* Coupon input */}
           <div className="border-t border-panel-2 pt-3 mt-2 mb-1">
             <p className="font-mono text-[11px] uppercase tracking-widest text-slate mb-2">Coupon code</p>
             {couponApplied ? (
@@ -346,23 +321,53 @@ export default function Checkout() {
                 <span>Total to pay</span>
                 <span className="font-mono">{formatINR(quote.total)}</span>
               </div>
-              {paymentMethod === 'cod' && quote.total > 0 && (
-                <div className="border-t border-panel-2 pt-3 space-y-1">
-                  <div className="flex justify-between text-xs font-mono text-acid">
-                    <span>Pay now ({codAdvancePercent}%)</span>
-                    <span>{formatINR(codAdvanceAmount)}</span>
-                  </div>
-                  <div className="flex justify-between text-xs font-mono text-slate">
-                    <span>On delivery ({100 - codAdvancePercent}%)</span>
-                    <span>{formatINR(codBalanceAmount)}</span>
-                  </div>
-                </div>
-              )}
             </>
           )}
           {!quote && <p className="font-mono text-[11px] text-slate">Delivery calculated with your order</p>}
         </div>
       </div>
+
+      {/* Payment Method Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShowPaymentModal(false)} />
+          <div className="relative bg-panel border border-panel-2 p-6 sm:p-8 w-full max-w-md space-y-5">
+            <h2 className="font-display text-2xl uppercase text-paper">Choose payment</h2>
+
+            <div className="border border-panel-2 p-4 space-y-1">
+              <p className="font-mono text-xs text-slate">Order total</p>
+              <p className="font-mono text-lg text-paper">{formatINR(quote?.total || 0)}</p>
+            </div>
+
+            <button
+              onClick={() => handlePaymentChoice('online')}
+              className="w-full bg-riot text-ink font-mono text-sm uppercase tracking-widest px-6 py-4 hover:bg-acid transition-colors text-left"
+            >
+              <span className="block">Pay now — {formatINR(quote?.total || 0)}</span>
+              <span className="block text-[11px] font-normal normal-case mt-1 opacity-70">Card / UPI / Wallet via Razorpay</span>
+            </button>
+
+            {codEnabled && (
+              <button
+                onClick={() => handlePaymentChoice('cod')}
+                className="w-full border border-panel-2 text-paper font-mono text-sm uppercase tracking-widest px-6 py-4 hover:border-paper transition-colors text-left"
+              >
+                <span className="block">Cash on Delivery</span>
+                <span className="block text-[11px] font-normal normal-case mt-1 opacity-70">
+                  Pay {formatINR(codAdvanceAmount)} online now, {formatINR(codBalanceAmount)} on delivery
+                </span>
+              </button>
+            )}
+
+            <button
+              onClick={() => setShowPaymentModal(false)}
+              className="font-mono text-[11px] uppercase tracking-widest text-slate hover:text-paper"
+            >
+              ← Back to form
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
