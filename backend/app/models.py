@@ -189,7 +189,7 @@ class Notification(Base):
     order_number = Column(String(40), nullable=False)
     customer_name = Column(String(150), nullable=False)
     customer_phone = Column(String(30), nullable=False)
-    message_type = Column(String(30), default="order_confirmation")
+    message_type = Column(String(30), default="order_confirm")
     whatsapp_message_id = Column(String(200), default="")
     status = Column(String(20), default="pending", index=True)  # pending / sent / delivered / read / failed
     error_message = Column(Text, default="")

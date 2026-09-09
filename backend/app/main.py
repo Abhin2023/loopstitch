@@ -658,7 +658,7 @@ def _send_whatsapp_notification(db: Session, order) -> None:
         else:
             phone_digits = "+" + phone_digits
 
-    body_params = whatsapp_helper.build_order_confirmation_params(
+    body_params = whatsapp_helper.build_order_confirm_params(
         customer_name=order.customer_name,
         order_number=order.order_number,
         items_summary=items_summary,
@@ -671,7 +671,7 @@ def _send_whatsapp_notification(db: Session, order) -> None:
         order_number=order.order_number,
         customer_name=order.customer_name,
         customer_phone=phone_digits,
-        message_type="order_confirmation",
+        message_type="order_confirm",
         status="pending",
     )
     db.add(notification)
@@ -680,7 +680,7 @@ def _send_whatsapp_notification(db: Session, order) -> None:
     try:
         result = whatsapp_helper.send_template_message(
             phone=phone_digits,
-            template_name="order_confirmation",
+            template_name="order_confirm",
             language_code="en",
             body_params=body_params,
         )
@@ -807,7 +807,7 @@ def admin_resend_notification(
     items_summary = _build_items_summary(items)
     payment_label = _build_payment_label(order)
     total_str = f"₹{order.total:,.0f}"
-    body_params = whatsapp_helper.build_order_confirmation_params(
+    body_params = whatsapp_helper.build_order_confirm_params(
         customer_name=order.customer_name,
         order_number=order.order_number,
         items_summary=items_summary,
@@ -822,7 +822,7 @@ def admin_resend_notification(
     try:
         result = whatsapp_helper.send_template_message(
             phone=n.customer_phone,
-            template_name="order_confirmation",
+            template_name="order_confirm",
             language_code="en",
             body_params=body_params,
         )

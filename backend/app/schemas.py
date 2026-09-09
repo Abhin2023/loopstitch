@@ -298,7 +298,7 @@ class NotificationOut(BaseModel):
     customer_name: str
     customer_phone: str
     status: str
-    message_type: str = "order_confirmation"
+    message_type: str = "order_confirm"
     whatsapp_message_id: str = ""
     error_message: str = ""
     sent_at: Optional[datetime] = None

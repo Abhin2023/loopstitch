@@ -40,7 +40,7 @@ def send_template_message(
 
     Args:
         phone: Recipient phone in E.164 format (e.g. "+916238860673")
-        template_name: Name of the approved Meta template (e.g. "order_confirmation")
+        template_name: Name of the approved Meta template (e.g. "order_confirm")
         language_code: BCP-47 language code (e.g. "en", "en_US")
         body_params: Ordered list of template body variables
 
@@ -94,7 +94,7 @@ def send_template_message(
     return {"message_id": messages[0].get("id", "")}
 
 
-def build_order_confirmation_params(
+def build_order_confirm_params(
     customer_name: str,
     order_number: str,
     items_summary: str,
@@ -102,7 +102,7 @@ def build_order_confirmation_params(
     payment_method: str,
 ) -> List[str]:
     """
-    Build the ordered body parameter list for the order_confirmation template.
+    Build the ordered body parameter list for the order_confirm template.
 
     Template variables:
       {{1}} = customer first name
