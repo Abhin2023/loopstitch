@@ -9,9 +9,13 @@ const client = axios.create({
 })
 
 client.interceptors.request.use((config) => {
-  const token = localStorage.getItem('loopstitch_admin_token')
-  if (token && config.url?.includes('/admin')) {
-    config.headers.Authorization = `Bearer ${token}`
+  const adminToken = localStorage.getItem('loopstitch_admin_token')
+  const customerToken = localStorage.getItem('loopstitch_customer_token')
+
+  if (adminToken && config.url?.includes('/admin')) {
+    config.headers.Authorization = `Bearer ${adminToken}`
+  } else if (customerToken && !config.url?.includes('/admin')) {
+    config.headers.Authorization = `Bearer ${customerToken}`
   }
   return config
 })

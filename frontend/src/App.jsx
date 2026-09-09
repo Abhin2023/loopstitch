@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { CartProvider } from './context/CartContext'
 import { AdminAuthProvider } from './context/AdminAuthContext'
+import { CustomerAuthProvider } from './context/CustomerAuthContext'
 
 import PublicLayout from './components/PublicLayout'
 import AdminLayout from './components/AdminLayout'
@@ -12,6 +13,7 @@ import ProductDetail from './pages/ProductDetail'
 import Cart from './pages/Cart'
 import Checkout from './pages/Checkout'
 import OrderConfirmation from './pages/OrderConfirmation'
+import OrderHistory from './pages/OrderHistory'
 import About from './pages/About'
 import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
@@ -33,44 +35,47 @@ export default function App() {
   return (
     <BrowserRouter>
       <AdminAuthProvider>
-        <CartProvider>
-          <ScrollToTop />
-          <Routes>
-            {/* Public storefront — no login link ever appears here */}
-            <Route element={<PublicLayout />}>
-              <Route path="/" element={<Home />} />
-              <Route path="/shop" element={<Shop />} />
-              <Route path="/product/:slug" element={<ProductDetail />} />
-              <Route path="/cart" element={<Cart />} />
-              <Route path="/checkout" element={<Checkout />} />
-              <Route path="/order/confirm" element={<OrderConfirmation />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="*" element={<NotFound />} />
-            </Route>
+        <CustomerAuthProvider>
+          <CartProvider>
+            <ScrollToTop />
+            <Routes>
+              {/* Public storefront */}
+              <Route element={<PublicLayout />}>
+                <Route path="/" element={<Home />} />
+                <Route path="/shop" element={<Shop />} />
+                <Route path="/product/:slug" element={<ProductDetail />} />
+                <Route path="/cart" element={<Cart />} />
+                <Route path="/checkout" element={<Checkout />} />
+                <Route path="/order/confirm" element={<OrderConfirmation />} />
+                <Route path="/orders" element={<OrderHistory />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="*" element={<NotFound />} />
+              </Route>
 
-            {/* Hidden admin area — reachable only by typing the URL directly */}
-            <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/admin" element={<AdminLayout />}>
-              <Route index element={<Navigate to="dashboard" replace />} />
-              <Route path="dashboard" element={<AdminDashboard />} />
-              <Route path="products" element={<AdminProducts />} />
-              <Route path="products/new" element={<AdminProductForm />} />
-              <Route path="products/:id" element={<AdminProductForm />} />
-              <Route path="offers" element={<AdminOffers />} />
-              <Route path="offers/new" element={<AdminOfferForm />} />
-              <Route path="offers/:id" element={<AdminOfferForm />} />
-              <Route path="coupons" element={<AdminCoupons />} />
-              <Route path="coupons/new" element={<AdminCouponForm />} />
-              <Route path="coupons/:id" element={<AdminCouponForm />} />
-              <Route path="settings" element={<AdminSettings />} />
-              <Route path="orders" element={<AdminOrders />} />
-              <Route path="notifications" element={<AdminNotifications />} />
-              <Route path="*" element={<Navigate to="dashboard" replace />} />
-            </Route>
-          </Routes>
-        </CartProvider>
+              {/* Hidden admin area */}
+              <Route path="/admin/login" element={<AdminLogin />} />
+              <Route path="/admin" element={<AdminLayout />}>
+                <Route index element={<Navigate to="dashboard" replace />} />
+                <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="products" element={<AdminProducts />} />
+                <Route path="products/new" element={<AdminProductForm />} />
+                <Route path="products/:id" element={<AdminProductForm />} />
+                <Route path="offers" element={<AdminOffers />} />
+                <Route path="offers/new" element={<AdminOfferForm />} />
+                <Route path="offers/:id" element={<AdminOfferForm />} />
+                <Route path="coupons" element={<AdminCoupons />} />
+                <Route path="coupons/new" element={<AdminCouponForm />} />
+                <Route path="coupons/:id" element={<AdminCouponForm />} />
+                <Route path="settings" element={<AdminSettings />} />
+                <Route path="orders" element={<AdminOrders />} />
+                <Route path="notifications" element={<AdminNotifications />} />
+                <Route path="*" element={<Navigate to="dashboard" replace />} />
+              </Route>
+            </Routes>
+          </CartProvider>
+        </CustomerAuthProvider>
       </AdminAuthProvider>
     </BrowserRouter>
   )

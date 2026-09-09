@@ -57,6 +57,7 @@ def ensure_columns() -> None:
             models.Order.razorpay_signature,
             models.Order.cod_advance_paid,
             models.Order.cod_advance_percent,
+            models.Order.customer_id,
         ],
         "order_items": [
             models.OrderItem.line_discount,
@@ -71,6 +72,17 @@ def ensure_columns() -> None:
             for column in columns:
                 if column.name not in existing:
                     add_column(conn, table, column)
+
+
+def ensure_customer_tables() -> None:
+    """Create customers, addresses, otps tables if they do not exist."""
+    with engine.begin() as conn:
+        insp = sa.inspect(conn)
+        for table_name in ["customers", "addresses", "otps"]:
+            if table_name not in insp.get_table_names():
+                print(f"  + creating '{table_name}' table")
+                table = models.Base.metadata.tables[table_name]
+                table.create(bind=conn, checkfirst=True)
 
 
 def ensure_notifications_table() -> None:
@@ -107,13 +119,15 @@ def seed_settings() -> None:
 
 def main() -> None:
     print("Loopstitch migration")
-    print("1/4 creating missing tables...")
+    print("1/5 creating missing tables...")
     Base.metadata.create_all(bind=engine)
-    print("2/4 ensuring notifications table...")
+    print("2/5 ensuring customer tables...")
+    ensure_customer_tables()
+    print("3/5 ensuring notifications table...")
     ensure_notifications_table()
-    print("3/4 adding missing columns...")
+    print("4/5 adding missing columns...")
     ensure_columns()
-    print("4/4 seeding default settings...")
+    print("5/5 seeding default settings...")
     seed_settings()
     print("Done.")
 

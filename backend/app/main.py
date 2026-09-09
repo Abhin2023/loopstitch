@@ -19,6 +19,7 @@ from .database import engine, get_db, SessionLocal
 from .offers import compute_best_offer, get_shipping_config, set_setting, shipping_fee_for, validate_coupon, apply_coupon_discount
 from . import razorpay as razorpay_helper
 from . import whatsapp as whatsapp_helper
+from . import customer_auth
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -87,6 +88,163 @@ def admin_login(payload: schemas.LoginRequest, db: Session = Depends(get_db)):
 @app.get("/api/admin/me")
 def admin_me(current: models.Admin = Depends(auth.get_current_admin)):
     return {"username": current.username}
+
+
+# ============================================================
+# CUSTOMER AUTH  (OTP login via WhatsApp)
+# ============================================================
+@app.post("/api/auth/send-otp", response_model=schemas.SendOTPResponse)
+def send_otp(payload: schemas.SendOTPRequest, db: Session = Depends(get_db)):
+    """Generate a 6-digit OTP and send it via WhatsApp."""
+    phone = payload.phone.strip()
+    if not phone or len(phone) < 6:
+        raise HTTPException(status_code=400, detail="Invalid phone number")
+
+    # Normalize phone to 10-digit Indian number
+    phone_digits = "".join(c for c in phone if c.isdigit())
+    if len(phone_digits) > 10:
+        phone_digits = phone_digits[-10:]
+    phone = phone_digits
+
+    # Rate limit: max 1 OTP per 60 seconds
+    recent = db.query(models.OTP).filter(
+        models.OTP.phone == phone,
+        models.OTP.used == False,  # noqa: E712
+    ).order_by(models.OTP.created_at.desc()).first()
+    if recent:
+        age = (datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) - recent.created_at).total_seconds()
+        if age < 60:
+            raise HTTPException(status_code=429, detail="Please wait before requesting another OTP")
+
+    otp_code = customer_auth.generate_otp()
+    expires_at = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(minutes=5)
+
+    otp_record = models.OTP(phone=phone, otp_code=otp_code, expires_at=expires_at)
+    db.add(otp_record)
+    db.commit()
+
+    # Send OTP via WhatsApp (best-effort)
+    e164_phone = "+91" + phone if not phone.startswith("+") else phone
+    try:
+        whatsapp_helper.send_otp_message(e164_phone, otp_code)
+    except Exception as exc:
+        logger.warning("WhatsApp OTP send failed for %s: %s", phone, exc)
+
+    return schemas.SendOTPResponse()
+
+
+@app.post("/api/auth/verify-otp", response_model=schemas.CustomerTokenResponse)
+def verify_otp(payload: schemas.VerifyOTPRequest, db: Session = Depends(get_db)):
+    """Verify OTP and return a customer JWT."""
+    phone = payload.phone.strip()
+    phone_digits = "".join(c for c in phone if c.isdigit())
+    if len(phone_digits) > 10:
+        phone_digits = phone_digits[-10:]
+    phone = phone_digits
+
+    otp_code = payload.otp.strip()
+
+    otp_record = db.query(models.OTP).filter(
+        models.OTP.phone == phone,
+        models.OTP.otp_code == otp_code,
+        models.OTP.used == False,  # noqa: E712
+    ).order_by(models.OTP.created_at.desc()).first()
+
+    if not otp_record:
+        raise HTTPException(status_code=400, detail="Invalid OTP code")
+
+    if otp_record.expires_at < datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None):
+        raise HTTPException(status_code=400, detail="OTP has expired")
+
+    # Mark OTP as used
+    otp_record.used = True
+    db.commit()
+
+    # Create or find customer
+    customer = customer_auth.create_or_get_customer(db, phone)
+
+    token = customer_auth.create_customer_token(phone)
+    return schemas.CustomerTokenResponse(
+        access_token=token,
+        customer=schemas.CustomerOut.model_validate(customer),
+    )
+
+
+@app.get("/api/auth/me", response_model=schemas.CustomerOut)
+def customer_me(current: models.Customer = Depends(customer_auth.require_customer)):
+    return current
+
+
+@app.patch("/api/auth/me", response_model=schemas.CustomerOut)
+def update_customer_me(
+    payload: schemas.CustomerUpdate,
+    db: Session = Depends(get_db),
+    current: models.Customer = Depends(customer_auth.require_customer),
+):
+    if payload.name is not None:
+        current.name = payload.name
+    if payload.email is not None:
+        current.email = payload.email
+    db.commit()
+    db.refresh(current)
+    return current
+
+
+# ============================================================
+# ADDRESSES  (customer saved addresses)
+# ============================================================
+@app.get("/api/addresses", response_model=List[schemas.AddressOut])
+def list_addresses(
+    db: Session = Depends(get_db),
+    current: models.Customer = Depends(customer_auth.require_customer),
+):
+    return db.query(models.Address).filter(
+        models.Address.customer_id == current.id
+    ).order_by(models.Address.is_default.desc(), models.Address.created_at.desc()).all()
+
+
+@app.post("/api/addresses", response_model=schemas.AddressOut)
+def create_address(
+    payload: schemas.AddressCreate,
+    db: Session = Depends(get_db),
+    current: models.Customer = Depends(customer_auth.require_customer),
+):
+    # If setting as default, unset other defaults
+    if payload.is_default:
+        db.query(models.Address).filter(
+            models.Address.customer_id == current.id,
+            models.Address.is_default == True,  # noqa: E712
+        ).update({models.Address.is_default: False})
+
+    address = models.Address(
+        customer_id=current.id,
+        full_address=payload.full_address,
+        city=payload.city,
+        state=payload.state,
+        pincode=payload.pincode,
+        is_default=payload.is_default,
+    )
+    db.add(address)
+    db.commit()
+    db.refresh(address)
+    return address
+
+
+@app.delete("/api/addresses/{address_id}")
+def delete_address(
+    address_id: int,
+    db: Session = Depends(get_db),
+    current: models.Customer = Depends(customer_auth.require_customer),
+):
+    address = db.query(models.Address).filter(
+        models.Address.id == address_id,
+        models.Address.customer_id == current.id,
+    ).first()
+    if not address:
+        raise HTTPException(status_code=404, detail="Address not found")
+    db.delete(address)
+    db.commit()
+    return {"detail": "Address deleted"}
 
 
 # ============================================================
@@ -275,7 +433,11 @@ def generate_order_number() -> str:
 
 
 @app.post("/api/orders")
-def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_db)):
+def create_order(
+    payload: schemas.OrderCreate,
+    db: Session = Depends(get_db),
+    current: models.Customer = Depends(customer_auth.get_current_customer),
+):
     if not payload.items:
         raise HTTPException(status_code=400, detail="Cart is empty")
 
@@ -286,6 +448,27 @@ def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_db)):
     if payment_method == "cod" and raw_settings.get("cod_enabled", "false") != "true":
         raise HTTPException(status_code=400, detail="Cash on delivery is not available. Please choose online payment.")
 
+    # Link to customer if authenticated, or auto-create/find by phone
+    customer_id = None
+    if current:
+        customer_id = current.id
+    else:
+        phone_digits = "".join(c for c in payload.customer_phone if c.isdigit())
+        if len(phone_digits) > 10:
+            phone_digits = phone_digits[-10:]
+        existing = db.query(models.Customer).filter(models.Customer.phone == phone_digits).first()
+        if existing:
+            customer_id = existing.id
+        else:
+            new_cust = models.Customer(
+                phone=phone_digits,
+                name=payload.customer_name,
+                email=payload.customer_email,
+            )
+            db.add(new_cust)
+            db.flush()
+            customer_id = new_cust.id
+
     order = models.Order(
         order_number=generate_order_number(),
         customer_name=payload.customer_name,
@@ -295,6 +478,7 @@ def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_db)):
         city=payload.city, state=payload.state, pincode=payload.pincode,
         status=models.OrderStatus.pending,
         payment_method=payment_method,
+        customer_id=customer_id,
     )
     db.add(order)
     db.flush()
@@ -467,7 +651,25 @@ def download_order_invoice(order_number: str, token: Optional[str] = Depends(aut
     )
 
 
-@app.get("/api/admin/orders", response_model=List[schemas.OrderOut])
+# ============================================================
+# CUSTOMER ORDER HISTORY  (requires customer JWT)
+# ============================================================
+@app.get("/api/orders/history", response_model=List[schemas.OrderHistoryOut])
+def customer_order_history(
+    db: Session = Depends(get_db),
+    current: models.Customer = Depends(customer_auth.require_customer),
+):
+    """Return all orders linked to the authenticated customer."""
+    orders = db.query(models.Order).options(
+        joinedload(models.Order.items)
+    ).filter(
+        models.Order.customer_id == current.id
+    ).order_by(models.Order.created_at.desc()).all()
+    return orders
+
+
+# ============================================================
+# ADMIN ORDER ROUTES
 def admin_list_orders(db: Session = Depends(get_db), current: models.Admin = Depends(auth.get_current_admin)):
     orders = db.query(models.Order).options(joinedload(models.Order.items)).order_by(models.Order.created_at.desc()).all()
     return orders

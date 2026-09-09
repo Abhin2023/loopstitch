@@ -159,9 +159,11 @@ class Order(Base):
     razorpay_signature = Column(String(200), default="")
     cod_advance_paid = Column(Float, default=0.0)   # amount paid online for COD orders
     cod_advance_percent = Column(Float, default=0.0) # percentage charged upfront
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
     created_at = Column(DateTime, default=_utcnow)
 
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+    customer = relationship("Customer", back_populates="orders")
 
 
 class OrderItem(Base):
@@ -199,3 +201,45 @@ class Notification(Base):
     created_at = Column(DateTime, default=_utcnow)
 
     order = relationship("Order")
+
+
+class Customer(Base):
+    """Store customer — auto-created on first order, can log in via phone OTP."""
+    __tablename__ = "customers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(150), nullable=False)
+    phone = Column(String(30), unique=True, index=True, nullable=False)
+    email = Column(String(150), default="")
+    created_at = Column(DateTime, default=_utcnow)
+
+    addresses = relationship("Address", back_populates="customer", cascade="all, delete-orphan")
+    orders = relationship("Order", back_populates="customer")
+
+
+class Address(Base):
+    """Saved shipping address for a customer."""
+    __tablename__ = "addresses"
+
+    id = Column(Integer, primary_key=True, index=True)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
+    full_address = Column(Text, nullable=False)
+    city = Column(String(100), default="")
+    state = Column(String(100), default="")
+    pincode = Column(String(20), default="")
+    is_default = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=_utcnow)
+
+    customer = relationship("Customer", back_populates="addresses")
+
+
+class OTP(Base):
+    """One-time password for phone-based login. Expires in 5 minutes."""
+    __tablename__ = "otps"
+
+    id = Column(Integer, primary_key=True, index=True)
+    phone = Column(String(30), nullable=False, index=True)
+    otp_code = Column(String(6), nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    used = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=_utcnow)

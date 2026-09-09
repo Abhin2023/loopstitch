@@ -137,7 +137,7 @@ export default function AdminProductForm() {
             </label>
           </div>
           <Field label="Colorway" name="colorway" value={form.colorway} onChange={handleChange} placeholder="e.g. Black, White" />
-          <div className="flex gap-8">
+          <div className="flex flex-wrap gap-8">
             <label className="flex items-center gap-2 font-mono text-xs text-paper">
               <input type="checkbox" name="is_active" checked={form.is_active} onChange={handleChange} />
               Active (visible on storefront)
@@ -158,12 +158,12 @@ export default function AdminProductForm() {
           </div>
           <div className="space-y-3">
             {sizes.map((s, i) => (
-              <div key={i} className="flex items-center gap-3">
+              <div key={i} className="flex flex-wrap items-center gap-3">
                 <input
                   value={s.size}
                   onChange={(e) => handleSizeChange(i, 'size', e.target.value.toUpperCase())}
                   placeholder="SIZE"
-                  className="w-24 bg-panel border border-panel-2 px-3 py-2 text-sm text-paper focus:border-acid outline-none font-mono uppercase"
+                  className="w-20 sm:w-24 bg-panel border border-panel-2 px-3 py-2 text-sm text-paper focus:border-acid outline-none font-mono uppercase"
                 />
                 <input
                   type="number"
@@ -171,10 +171,11 @@ export default function AdminProductForm() {
                   value={s.stock}
                   onChange={(e) => handleSizeChange(i, 'stock', e.target.value)}
                   placeholder="Stock"
-                  className="w-28 bg-panel border border-panel-2 px-3 py-2 text-sm text-paper focus:border-acid outline-none font-mono"
+                  className="w-24 sm:w-28 bg-panel border border-panel-2 px-3 py-2 text-sm text-paper focus:border-acid outline-none font-mono"
                 />
-                <span className="font-mono text-[11px] text-slate">{s.stock === 0 ? 'locked / sold out' : `${s.stock} units`}</span>
-                <button type="button" onClick={() => removeSizeRow(i)} className="ml-auto font-mono text-[11px] text-riot hover:underline">
+                <span className="font-mono text-[11px] text-slate hidden sm:inline">{s.stock === 0 ? 'locked / sold out' : `${s.stock} units`}</span>
+                <span className="font-mono text-[11px] text-slate sm:hidden">{s.stock === 0 ? 'locked' : `${s.stock}u`}</span>
+                <button type="button" onClick={() => removeSizeRow(i)} className="font-mono text-[11px] text-riot hover:underline">
                   Remove
                 </button>
               </div>
@@ -214,7 +215,7 @@ export default function AdminProductForm() {
 
         {error && <div className="border border-riot bg-riot/10 text-riot text-sm font-mono px-4 py-3">{error}</div>}
 
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4">
           <button type="submit" disabled={saving} className="bg-riot text-ink font-mono text-sm uppercase tracking-widest px-8 py-3.5 hover:bg-acid transition-colors disabled:opacity-60">
             {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create product'}
           </button>

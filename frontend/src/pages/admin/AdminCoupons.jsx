@@ -38,9 +38,9 @@ export default function AdminCoupons() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="font-display text-3xl uppercase text-paper">Coupons</h1>
-        <Link to="/admin/coupons/new" className="bg-riot text-ink font-mono text-xs uppercase tracking-widest px-5 py-2.5 hover:bg-acid transition-colors">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+        <h1 className="font-display text-2xl sm:text-3xl uppercase text-paper">Coupons</h1>
+        <Link to="/admin/coupons/new" className="bg-riot text-ink font-mono text-xs uppercase tracking-widest px-5 py-2.5 hover:bg-acid transition-colors shrink-0">
           + New coupon
         </Link>
       </div>
@@ -54,32 +54,34 @@ export default function AdminCoupons() {
       ) : (
         <div className="border border-panel-2 divide-y divide-panel-2">
           {coupons.map((c) => (
-            <div key={c.id} className="flex items-center gap-4 p-4">
+            <div key={c.id} className="flex flex-wrap items-center gap-3 p-4">
               <div className="flex-1 min-w-0">
                 <p className="text-paper text-sm truncate font-mono">
                   {c.code}
                   {!c.is_active && <span className="ml-2 text-[10px] text-slate">(paused)</span>}
                 </p>
-                <p className="font-mono text-[11px] text-slate mt-0.5">
+                <p className="font-mono text-[11px] text-slate mt-0.5 truncate">
                   {c.discount_percent}% off
                   {c.max_uses > 0 ? ` · ${c.times_used}/${c.max_uses} used` : ` · ${c.times_used} used`}
                   {c.min_order > 0 && ` · min ${formatINR(c.min_order)}`}
                 </p>
               </div>
-              <button
-                onClick={() => handleToggle(c)}
-                className={`font-mono text-[10px] uppercase tracking-widest px-3 py-1.5 border transition-colors ${
-                  c.is_active ? 'border-acid text-acid' : 'border-panel-2 text-slate hover:text-paper'
-                }`}
-              >
-                {c.is_active ? 'Active' : 'Paused'}
-              </button>
-              <Link to={`/admin/coupons/${c.id}`} className="font-mono text-xs uppercase tracking-widest text-acid hover:underline shrink-0">
-                Edit
-              </Link>
-              <button onClick={() => handleDelete(c)} className="font-mono text-xs uppercase tracking-widest text-riot hover:underline shrink-0">
-                Delete
-              </button>
+              <div className="flex items-center gap-3 shrink-0">
+                <button
+                  onClick={() => handleToggle(c)}
+                  className={`font-mono text-[10px] uppercase tracking-widest px-3 py-1.5 border transition-colors ${
+                    c.is_active ? 'border-acid text-acid' : 'border-panel-2 text-slate hover:text-paper'
+                  }`}
+                >
+                  {c.is_active ? 'Active' : 'Paused'}
+                </button>
+                <Link to={`/admin/coupons/${c.id}`} className="font-mono text-xs uppercase tracking-widest text-acid hover:underline">
+                  Edit
+                </Link>
+                <button onClick={() => handleDelete(c)} className="font-mono text-xs uppercase tracking-widest text-riot hover:underline">
+                  Delete
+                </button>
+              </div>
             </div>
           ))}
         </div>

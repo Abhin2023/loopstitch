@@ -48,7 +48,7 @@ export default function AdminOrders() {
 
   return (
     <div>
-      <h1 className="font-display text-3xl uppercase text-paper mb-8">Orders</h1>
+      <h1 className="font-display text-2xl sm:text-3xl uppercase text-paper mb-8">Orders</h1>
 
       {orders.length === 0 ? (
         <p className="font-mono text-sm text-slate">No orders yet.</p>
@@ -56,10 +56,10 @@ export default function AdminOrders() {
         <div className="border border-panel-2 divide-y divide-panel-2">
           {orders.map((order) => (
             <div key={order.id} className="p-4">
-              <div className="flex flex-wrap items-center gap-4 justify-between">
+              <div className="flex flex-wrap items-center gap-3 sm:gap-4 justify-between">
                 <button
                   onClick={() => setExpanded(expanded === order.id ? null : order.id)}
-                  className="text-left flex-1 min-w-[220px]"
+                  className="text-left flex-1 min-w-0"
                 >
                   <p className="font-mono text-sm text-paper">#{order.order_number}</p>
                   <p className="font-mono text-[11px] text-slate mt-0.5">

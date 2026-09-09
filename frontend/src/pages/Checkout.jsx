@@ -2,13 +2,9 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link, useLocation } from 'react-router-dom'
 import client from '../api/client'
 import { useCart } from '../context/CartContext'
+import { useCustomerAuth } from '../context/CustomerAuthContext'
 import useQuote from '../hooks/useQuote'
 import { formatINR } from '../utils/format'
-
-const initialForm = {
-  customer_name: '', customer_email: '', customer_phone: '',
-  shipping_address: '', city: '', state: '', pincode: '',
-}
 
 function normalizePhone(value) {
   const digits = value.replace(/\D/g, '')
@@ -20,6 +16,7 @@ function normalizePhone(value) {
 
 export default function Checkout() {
   const { items, subtotal, clearCart } = useCart()
+  const { customer, isAuthenticated, addresses, loadAddresses, addAddress } = useCustomerAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const couponFromCart = location.state?.couponCode || ''
@@ -28,7 +25,16 @@ export default function Checkout() {
   const [couponError, setCouponError] = useState(null)
   const [couponLoading, setCouponLoading] = useState(false)
   const quote = useQuote(items, couponApplied?.code || couponFromCart || '')
-  const [form, setForm] = useState(initialForm)
+
+  // Form state — initialized empty, populated from customer profile
+  const [form, setForm] = useState({
+    customer_name: '', customer_email: '', customer_phone: '',
+    shipping_address: '', city: '', state: '', pincode: '',
+  })
+  const [selectedAddressId, setSelectedAddressId] = useState(null)
+  const [showNewAddress, setShowNewAddress] = useState(false)
+  const [addressesLoaded, setAddressesLoaded] = useState(false)
+
   const [error, setError] = useState(null)
   const [step, setStep] = useState('form')
   const [showPaymentModal, setShowPaymentModal] = useState(false)
@@ -38,6 +44,7 @@ export default function Checkout() {
   const [codAdvancePercent, setCodAdvancePercent] = useState(10)
   const [razorpayKeyId, setRazorpayKeyId] = useState('')
 
+  // Load checkout settings
   useEffect(() => {
     client.get('/api/settings/checkout').then((res) => {
       setCodEnabled(res.data.cod_enabled)
@@ -45,6 +52,36 @@ export default function Checkout() {
       setRazorpayKeyId(res.data.razorpay_key_id || '')
     }).catch(() => {})
   }, [])
+
+  // Auto-fill from customer profile + load saved addresses
+  useEffect(() => {
+    if (isAuthenticated && customer) {
+      setForm((f) => ({
+        ...f,
+        customer_name: f.customer_name || customer.name || '',
+        customer_email: f.customer_email || customer.email || '',
+        customer_phone: f.customer_phone || customer.phone || '',
+      }))
+      if (!addressesLoaded) {
+        loadAddresses().then((addrs) => {
+          setAddressesLoaded(true)
+          if (addrs && addrs.length > 0) {
+            const defaultAddr = addrs.find((a) => a.is_default) || addrs[0]
+            setSelectedAddressId(defaultAddr.id)
+            setForm((f) => ({
+              ...f,
+              shipping_address: defaultAddr.full_address,
+              city: defaultAddr.city,
+              state: defaultAddr.state,
+              pincode: defaultAddr.pincode,
+            }))
+          } else {
+            setShowNewAddress(true)
+          }
+        })
+      }
+    }
+  }, [isAuthenticated, customer, addressesLoaded])
 
   if (items.length === 0) {
     return (
@@ -62,6 +99,29 @@ export default function Checkout() {
     } else {
       setForm((f) => ({ ...f, [name]: value }))
     }
+    // If user edits address fields, deselect saved address
+    if (['shipping_address', 'city', 'state', 'pincode'].includes(name)) {
+      setSelectedAddressId(null)
+      setShowNewAddress(true)
+    }
+  }
+
+  const handleSelectAddress = (addr) => {
+    setSelectedAddressId(addr.id)
+    setShowNewAddress(false)
+    setForm((f) => ({
+      ...f,
+      shipping_address: addr.full_address,
+      city: addr.city,
+      state: addr.state,
+      pincode: addr.pincode,
+    }))
+  }
+
+  const handleAddNewAddress = () => {
+    setSelectedAddressId(null)
+    setShowNewAddress(true)
+    setForm((f) => ({ ...f, shipping_address: '', city: '', state: '', pincode: '' }))
   }
 
   const handleApplyCoupon = async () => {
@@ -120,6 +180,18 @@ export default function Checkout() {
             razorpay_signature: response.razorpay_signature,
             order_number: orderNumber,
           })
+          // Save new address if logged in and using new address
+          if (isAuthenticated && showNewAddress && form.shipping_address) {
+            try {
+              await addAddress({
+                full_address: form.shipping_address,
+                city: form.city,
+                state: form.state,
+                pincode: form.pincode,
+                is_default: addresses.length === 0,
+              })
+            } catch { /* address save is non-critical */ }
+          }
           clearCart()
           setPayProcessing(false)
           navigate('/order/confirm', {
@@ -202,6 +274,18 @@ export default function Checkout() {
         return
       }
 
+      // Save new address if logged in and using new address (for zero-payment COD)
+      if (isAuthenticated && showNewAddress && form.shipping_address) {
+        try {
+          await addAddress({
+            full_address: form.shipping_address,
+            city: form.city,
+            state: form.state,
+            pincode: form.pincode,
+            is_default: addresses.length === 0,
+          })
+        } catch { /* address save is non-critical */ }
+      }
       clearCart()
       navigate('/order/confirm', { state: { order: orderData } })
     } catch (err) {
@@ -234,12 +318,63 @@ export default function Checkout() {
             <Field label="Phone" name="customer_phone" value={form.customer_phone} onChange={handleChange} required maxLength={10} inputMode="numeric" />
           </div>
           <Field label="Email" name="customer_email" type="email" value={form.customer_email} onChange={handleChange} required />
-          <Field label="Address" name="shipping_address" value={form.shipping_address} onChange={handleChange} required textarea />
-          <div className="grid sm:grid-cols-3 gap-5">
-            <Field label="City" name="city" value={form.city} onChange={handleChange} required />
-            <Field label="State" name="state" value={form.state} onChange={handleChange} required />
-            <Field label="Pincode" name="pincode" value={form.pincode} onChange={handleChange} required pattern="[0-9]{6}" title="Enter a valid 6-digit pincode" />
-          </div>
+
+          {/* Saved addresses (logged-in users only) */}
+          {isAuthenticated && addresses.length > 0 && !showNewAddress && (
+            <div>
+              <p className="font-mono text-[11px] uppercase tracking-widest text-slate mb-2">Shipping address</p>
+              <div className="space-y-2">
+                {addresses.map((addr) => (
+                  <label
+                    key={addr.id}
+                    className={`block border p-3 cursor-pointer transition-colors ${
+                      selectedAddressId === addr.id
+                        ? 'border-acid bg-acid/5'
+                        : 'border-panel-2 hover:border-paper/30'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="saved_address"
+                      checked={selectedAddressId === addr.id}
+                      onChange={() => handleSelectAddress(addr)}
+                      className="mr-2 accent-acid"
+                    />
+                    <span className="font-mono text-xs text-paper">{addr.full_address}</span>
+                    <span className="font-mono text-[11px] text-slate ml-2">{addr.city} {addr.state} {addr.pincode}</span>
+                  </label>
+                ))}
+                <button
+                  type="button"
+                  onClick={handleAddNewAddress}
+                  className="font-mono text-[11px] uppercase tracking-widest text-acid hover:underline"
+                >
+                  + Add new address
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Address form — shown when no saved addresses or "Add new" clicked */}
+          {(!isAuthenticated || addresses.length === 0 || showNewAddress) && (
+            <>
+              {isAuthenticated && addresses.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => { setShowNewAddress(false); setSelectedAddressId(addresses[0]?.id || null); if (addresses[0]) handleSelectAddress(addresses[0]) }}
+                  className="font-mono text-[11px] uppercase tracking-widest text-slate hover:text-paper"
+                >
+                  ← Use saved address
+                </button>
+              )}
+              <Field label="Address" name="shipping_address" value={form.shipping_address} onChange={handleChange} required textarea />
+              <div className="grid sm:grid-cols-3 gap-5">
+                <Field label="City" name="city" value={form.city} onChange={handleChange} required />
+                <Field label="State" name="state" value={form.state} onChange={handleChange} required />
+                <Field label="Pincode" name="pincode" value={form.pincode} onChange={handleChange} required pattern="[0-9]{6}" title="Enter a valid 6-digit pincode" />
+              </div>
+            </>
+          )}
 
           {error && (
             <div className="border border-riot bg-riot/10 text-riot text-sm font-mono px-4 py-3">{error}</div>

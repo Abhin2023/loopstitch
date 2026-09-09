@@ -313,3 +313,88 @@ class NotificationOut(BaseModel):
 class NotificationListResponse(BaseModel):
     items: List[NotificationOut]
     total: int
+
+
+# ---------- Customer Auth (OTP login) ----------
+class SendOTPRequest(BaseModel):
+    phone: str
+
+
+class SendOTPResponse(BaseModel):
+    message: str = "OTP sent successfully"
+    expires_in: int = 300  # seconds
+
+
+class VerifyOTPRequest(BaseModel):
+    phone: str
+    otp: str
+
+
+class CustomerTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    customer: "CustomerOut"
+
+
+class CustomerOut(BaseModel):
+    id: int
+    name: str
+    phone: str
+    email: str = ""
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CustomerUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+
+
+# ---------- Addresses ----------
+class AddressCreate(BaseModel):
+    full_address: str
+    city: str = ""
+    state: str = ""
+    pincode: str = ""
+    is_default: bool = False
+
+
+class AddressOut(BaseModel):
+    id: int
+    full_address: str
+    city: str
+    state: str
+    pincode: str
+    is_default: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# ---------- Order History ----------
+class OrderHistoryOut(BaseModel):
+    id: int
+    order_number: str
+    status: str
+    subtotal: float
+    discount_amount: float = 0
+    offer_label: str = ""
+    coupon_code: str = ""
+    coupon_discount: float = 0
+    shipping_fee: float = 0
+    total: float
+    payment_method: str = "cod"
+    cod_advance_paid: float = 0.0
+    cod_advance_percent: float = 0.0
+    created_at: datetime
+    items: List[OrderItemOut] = []
+
+    class Config:
+        from_attributes = True
+
+
+# Rebuild forward refs for CustomerTokenResponse
+CustomerTokenResponse.model_rebuild()

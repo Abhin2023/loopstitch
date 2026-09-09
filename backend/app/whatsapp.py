@@ -119,3 +119,18 @@ def build_order_confirm_params(
         total,
         payment_method,
     ]
+
+
+def send_otp_message(phone: str, otp_code: str) -> Dict[str, Any]:
+    """
+    Send an OTP verification code via WhatsApp template.
+
+    Template: otp_verification
+    Variables: {{1}} = 6-digit OTP code
+    """
+    return send_template_message(
+        phone=phone,
+        template_name="otp_verification",
+        language_code="en",
+        body_params=[otp_code],
+    )

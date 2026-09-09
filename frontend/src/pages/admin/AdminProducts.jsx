@@ -29,9 +29,9 @@ export default function AdminProducts() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="font-display text-3xl uppercase text-paper">Products</h1>
-        <Link to="/admin/products/new" className="bg-riot text-ink font-mono text-xs uppercase tracking-widest px-5 py-2.5 hover:bg-acid transition-colors">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+        <h1 className="font-display text-2xl sm:text-3xl uppercase text-paper">Products</h1>
+        <Link to="/admin/products/new" className="bg-riot text-ink font-mono text-xs uppercase tracking-widest px-5 py-2.5 hover:bg-acid transition-colors shrink-0">
           + Add product
         </Link>
       </div>
@@ -41,22 +41,24 @@ export default function AdminProducts() {
       ) : (
         <div className="border border-panel-2 divide-y divide-panel-2">
           {products.map((p) => (
-            <div key={p.id} className="flex items-center gap-4 p-4">
-              <div className="w-14 h-16 bg-panel shrink-0 overflow-hidden">
+            <div key={p.id} className="flex flex-wrap items-center gap-3 p-4">
+              <div className="w-12 h-14 sm:w-14 sm:h-16 bg-panel shrink-0 overflow-hidden">
                 {p.images?.[0] && <img src={mediaUrl(p.images[0].url)} alt="" className="w-full h-full object-cover" />}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-paper text-sm truncate">{p.name}</p>
-                <p className="font-mono text-[11px] text-slate mt-0.5">
+                <p className="font-mono text-[11px] text-slate mt-0.5 truncate">
                   {formatINR(p.price)} · stock {p.total_stock} · {p.is_active ? 'active' : 'hidden'} {p.is_featured && '· featured'}
                 </p>
               </div>
-              <Link to={`/admin/products/${p.id}`} className="font-mono text-xs uppercase tracking-widest text-acid hover:underline shrink-0">
-                Edit
-              </Link>
-              <button onClick={() => handleDelete(p)} className="font-mono text-xs uppercase tracking-widest text-riot hover:underline shrink-0">
-                Delete
-              </button>
+              <div className="flex items-center gap-3 shrink-0">
+                <Link to={`/admin/products/${p.id}`} className="font-mono text-xs uppercase tracking-widest text-acid hover:underline">
+                  Edit
+                </Link>
+                <button onClick={() => handleDelete(p)} className="font-mono text-xs uppercase tracking-widest text-riot hover:underline">
+                  Delete
+                </button>
+              </div>
             </div>
           ))}
         </div>

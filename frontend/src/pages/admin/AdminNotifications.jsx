@@ -54,7 +54,7 @@ export default function AdminNotifications() {
 
   return (
     <div>
-      <h1 className="font-display text-3xl uppercase text-paper mb-8">WhatsApp Notifications</h1>
+      <h1 className="font-display text-2xl sm:text-3xl uppercase text-paper mb-8">WhatsApp Notifications</h1>
 
       {/* Status filter */}
       <div className="flex flex-wrap gap-2 mb-6">
@@ -81,13 +81,13 @@ export default function AdminNotifications() {
             const statusInfo = STATUS_LABELS[n.status] || STATUS_LABELS.pending
             return (
               <div key={n.id} className="p-4">
-                <div className="flex flex-wrap items-center gap-4 justify-between">
-                  <div className="flex-1 min-w-[220px]">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4 justify-between">
+                  <div className="flex-1 min-w-0">
                     <p className="font-mono text-sm text-paper">
                       #{n.order_number}
                       <span className={`ml-2 text-[11px] ${statusInfo.color}`}>{statusInfo.label}</span>
                     </p>
-                    <p className="font-mono text-[11px] text-slate mt-0.5">
+                    <p className="font-mono text-[11px] text-slate mt-0.5 truncate">
                       {n.customer_name} · {n.customer_phone} · {formatDate(n.created_at)}
                     </p>
                     {n.error_message && (
@@ -97,14 +97,14 @@ export default function AdminNotifications() {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-3 shrink-0">
                     {n.sent_at && (
-                      <span className="font-mono text-[10px] text-slate" title={`Sent: ${formatDate(n.sent_at)}`}>
+                      <span className="font-mono text-[10px] text-slate hidden sm:inline" title={`Sent: ${formatDate(n.sent_at)}`}>
                         Sent {formatDate(n.sent_at)}
                       </span>
                     )}
                     {n.delivered_at && (
-                      <span className="font-mono text-[10px] text-slate" title={`Delivered: ${formatDate(n.delivered_at)}`}>
+                      <span className="font-mono text-[10px] text-slate hidden sm:inline" title={`Delivered: ${formatDate(n.delivered_at)}`}>
                         Delivered {formatDate(n.delivered_at)}
                       </span>
                     )}
@@ -127,7 +127,7 @@ export default function AdminNotifications() {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-6">
+        <div className="flex flex-wrap items-center justify-between gap-4 mt-6">
           <span className="font-mono text-[11px] text-slate">
             Showing {((page - 1) * 20) + 1}–{Math.min(page * 20, total)} of {total}
           </span>
@@ -140,7 +140,7 @@ export default function AdminNotifications() {
               ← Prev
             </button>
             <span className="font-mono text-[11px] text-slate px-3 py-1.5">
-              Page {page} of {totalPages}
+              {page} / {totalPages}
             </span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
