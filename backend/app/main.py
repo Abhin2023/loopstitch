@@ -1,8 +1,11 @@
 import os
 import re
 import uuid
+import logging
 import datetime
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Request, status
 from fastapi.middleware.cors import CORSMiddleware
