@@ -7,6 +7,8 @@ from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -117,6 +119,7 @@ def send_otp(payload: schemas.SendOTPRequest, db: Session = Depends(get_db)):
             raise HTTPException(status_code=429, detail="Please wait before requesting another OTP")
 
     otp_code = customer_auth.generate_otp()
+    print(f"OTP for {phone}: {otp_code}", flush=True)
     logger.info("OTP for %s: %s", phone, otp_code)
     expires_at = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(minutes=5)
 
