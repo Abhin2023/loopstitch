@@ -12,6 +12,8 @@ services:
       DATABASE_URL: mysql+pymysql://loopstitch:${MYSQL_PASSWORD}@db:3306/loopstitch
       SECRET_KEY: ${SECRET_KEY}
       CORS_ORIGINS: http://localhost,http://localhost:80,http://127.0.0.1,https://loopstitch.online,https://www.loopstitch.online
+      RAZORPAY_KEY_ID: rzp_test_TZneFvaiCcx3Ka
+      RAZORPAY_KEY_SECRET: n8hqjKUbGsFwDATWydNCRl8H
     volumes:
       - uploads_data:/app/backend/uploads
     restart: unless-stopped
