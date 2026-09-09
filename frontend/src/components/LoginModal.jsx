@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useCustomerAuth } from '../context/CustomerAuthContext'
 
@@ -6,7 +6,7 @@ const RESEND_COOLDOWN = 45
 
 export default function LoginModal({ open, onClose }) {
   const { sendOTP, verifyOTP } = useCustomerAuth()
-  const [step, setStep] = useState('phone') // 'phone' | 'otp'
+  const [step, setStep] = useState('phone')
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
   const [error, setError] = useState(null)
@@ -15,32 +15,41 @@ export default function LoginModal({ open, onClose }) {
   const [cooldown, setCooldown] = useState(0)
   const intervalRef = useRef(null)
 
-  useEffect(() => {
-    if (cooldown > 0) {
-      intervalRef.current = setInterval(() => {
-        setCooldown((c) => {
-          if (c <= 1) {
-            clearInterval(intervalRef.current)
-            return 0
-          }
-          return c - 1
-        })
-      }, 1000)
-      return () => clearInterval(intervalRef.current)
+  const clearTimer = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
     }
-  }, [cooldown === RESEND_COOLDOWN])
+  }
+
+  const startCooldown = () => {
+    clearTimer()
+    setCooldown(RESEND_COOLDOWN)
+  }
+
+  useEffect(() => {
+    if (cooldown <= 0) {
+      clearTimer()
+      return
+    }
+    intervalRef.current = setInterval(() => {
+      setCooldown((prev) => {
+        if (prev <= 1) {
+          clearTimer()
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return clearTimer
+  }, [cooldown])
 
   useEffect(() => {
     if (!open) {
       setCooldown(0)
-      clearInterval(intervalRef.current)
+      clearTimer()
     }
   }, [open])
-
-  const startCooldown = useCallback(() => {
-    clearInterval(intervalRef.current)
-    setCooldown(RESEND_COOLDOWN)
-  }, [])
 
   const handleSendOTP = async (e) => {
     e.preventDefault()
@@ -104,12 +113,20 @@ export default function LoginModal({ open, onClose }) {
     setSuccess(false)
     setLoading(false)
     setCooldown(0)
-    clearInterval(intervalRef.current)
+    clearTimer()
   }
 
   const handleClose = () => {
     reset()
     onClose()
+  }
+
+  const handleChangePhone = () => {
+    setStep('phone')
+    setOtp('')
+    setError(null)
+    setCooldown(0)
+    clearTimer()
   }
 
   if (!open) return null
@@ -190,12 +207,10 @@ export default function LoginModal({ open, onClose }) {
                     {loading ? 'Verifying…' : 'Verify'}
                   </button>
 
-                  {/* Resend OTP / Countdown */}
-                  <div className="text-center pt-1">
+                  <div className="text-center pt-1 h-8">
                     {cooldown > 0 ? (
                       <p className="font-mono text-xs text-slate">
-                        Resend code in{' '}
-                        <span className="text-paper font-semibold">{cooldown}s</span>
+                        Resend code in <span className="text-paper font-semibold">{cooldown}s</span>
                       </p>
                     ) : (
                       <button
@@ -211,7 +226,7 @@ export default function LoginModal({ open, onClose }) {
 
                   <button
                     type="button"
-                    onClick={() => { setStep('phone'); setOtp(''); setError(null); setCooldown(0); clearInterval(intervalRef.current) }}
+                    onClick={handleChangePhone}
                     className="font-mono text-[11px] uppercase tracking-widest text-slate hover:text-paper w-full text-center"
                   >
                     ← Change phone number

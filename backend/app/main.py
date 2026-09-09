@@ -113,10 +113,11 @@ def send_otp(payload: schemas.SendOTPRequest, db: Session = Depends(get_db)):
     ).order_by(models.OTP.created_at.desc()).first()
     if recent:
         age = (datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) - recent.created_at).total_seconds()
-        if age < 60:
+        if age < 45:
             raise HTTPException(status_code=429, detail="Please wait before requesting another OTP")
 
     otp_code = customer_auth.generate_otp()
+    logger.info("OTP for %s: %s", phone, otp_code)
     expires_at = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(minutes=5)
 
     otp_record = models.OTP(phone=phone, otp_code=otp_code, expires_at=expires_at)
