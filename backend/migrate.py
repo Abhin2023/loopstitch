@@ -52,7 +52,11 @@ def ensure_columns() -> None:
             models.Order.coupon_code,
             models.Order.coupon_discount,
             models.Order.payment_method,
-            models.Order.payu_txnid,
+            models.Order.razorpay_order_id,
+            models.Order.razorpay_payment_id,
+            models.Order.razorpay_signature,
+            models.Order.cod_advance_paid,
+            models.Order.cod_advance_percent,
         ],
         "order_items": [
             models.OrderItem.line_discount,
@@ -73,9 +77,7 @@ def seed_settings() -> None:
     defaults = {
         "delivery_fee": "45",
         "free_shipping_threshold": "1000",
-        "payu_key": "",
-        "payu_salt": "",
-        "payu_test_mode": "true",
+        "cod_advance_percent": "10",
         "cod_enabled": "false",
     }
     db = SessionLocal()

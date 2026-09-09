@@ -7,15 +7,14 @@ from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import Response, HTMLResponse, RedirectResponse
+from fastapi.responses import Response
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 
 from . import models, schemas, auth
 from .database import engine, get_db
 from .offers import compute_best_offer, get_shipping_config, set_setting, shipping_fee_for, validate_coupon, apply_coupon_discount
-from . import payu
-from .payu import verify_hash_valid
+from . import razorpay as razorpay_helper
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -283,12 +282,6 @@ def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_db)):
     if payment_method == "cod" and raw_settings.get("cod_enabled", "false") != "true":
         raise HTTPException(status_code=400, detail="Cash on delivery is not available. Please choose online payment.")
 
-    if payment_method == "online":
-        payu_key = raw_settings.get("payu_key", "")
-        payu_salt = raw_settings.get("payu_salt", "")
-        if not payu_key or not payu_salt:
-            raise HTTPException(status_code=400, detail="Online payment is not configured. Please try again later.")
-
     order = models.Order(
         order_number=generate_order_number(),
         customer_name=payload.customer_name,
@@ -364,52 +357,17 @@ def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_db)):
     order.shipping_fee = shipping_fee
     order.total = round(subtotal_after_bogo - (order.coupon_discount or 0.0) + shipping_fee, 2)
 
+    # For COD orders, calculate the advance amount to be paid online
+    if payment_method == "cod":
+        advance_pct = float(raw_settings.get("cod_advance_percent", "10"))
+        order.cod_advance_percent = advance_pct
+        order.cod_advance_paid = round(order.total * advance_pct / 100.0, 2)
+
     for row in item_rows:
         db.add(row)
 
     db.commit()
     db.refresh(order)
-
-    # For online payments, generate PayU hash and return form data
-    if payment_method == "online":
-        payu_key = raw_settings.get("payu_key", "")
-        payu_salt = raw_settings.get("payu_salt", "")
-        is_test = raw_settings.get("payu_test_mode", "true") == "true"
-
-        amount_str = f"{order.total:.2f}"
-        product_info = "Loopstitch Order"
-        txnid = order.order_number
-        firstname = order.customer_name
-        email = order.customer_email
-        phone = order.customer_phone
-
-        base_url = "https://loopstitch.online"
-        surl = f"{base_url}/api/payu/surl"
-        furl = f"{base_url}/api/payu/furl"
-
-        hash_val = payu.generate_hash(
-            key=payu_key, salt=payu_salt, txnid=txnid,
-            amount=amount_str, productinfo=product_info,
-            firstname=firstname, email=email, udf1=txnid,
-        )
-
-        return {
-            "order": schemas.OrderOut.model_validate(order).model_dump(),
-            "payu_form_data": {
-                "payment_url": payu.payment_url(is_test),
-                "key": payu_key,
-                "txnid": txnid,
-                "amount": amount_str,
-                "productinfo": product_info,
-                "firstname": firstname,
-                "email": email,
-                "phone": phone,
-                "surl": surl,
-                "furl": furl,
-                "hash": hash_val,
-                "udf1": txnid,
-            },
-        }
 
     return {"order": schemas.OrderOut.model_validate(order).model_dump()}
 
@@ -539,7 +497,7 @@ def admin_download_invoice(order_id: int, db: Session = Depends(get_db), current
 # ============================================================
 # STORE SETTINGS  (delivery fee etc. — editable from admin)
 # ============================================================
-# SETTINGS (delivery + PayU + COD — admin managed)
+# SETTINGS (delivery + Razorpay + COD — admin managed)
 # ============================================================
 def _get_all_settings(db: Session) -> dict:
     """Read all settings from the DB into a flat dict."""
@@ -549,14 +507,10 @@ def _get_all_settings(db: Session) -> dict:
 
 def _build_settings_out(db: Session) -> schemas.SettingsOut:
     raw = _get_all_settings(db)
-    salt_full = raw.get("payu_salt", "")
-    salt_masked = ("***" + salt_full[-4:]) if len(salt_full) > 4 else salt_full
     return schemas.SettingsOut(
         delivery_fee=float(raw.get("delivery_fee", 45)),
         free_shipping_threshold=float(raw.get("free_shipping_threshold", 1000)),
-        payu_key=raw.get("payu_key", ""),
-        payu_salt=salt_masked,
-        payu_test_mode=raw.get("payu_test_mode", "true") == "true",
+        cod_advance_percent=float(raw.get("cod_advance_percent", "10")),
         cod_enabled=raw.get("cod_enabled", "false") == "true",
     )
 
@@ -571,7 +525,7 @@ def public_checkout_settings(db: Session = Depends(get_db)):
     raw = _get_all_settings(db)
     return schemas.PublicCheckoutSettings(
         cod_enabled=raw.get("cod_enabled", "false") == "true",
-        payu_test_mode=raw.get("payu_test_mode", "true") == "true",
+        cod_advance_percent=float(raw.get("cod_advance_percent", "10")),
     )
 
 
@@ -586,15 +540,8 @@ def admin_update_settings(payload: schemas.SettingsUpdate, db: Session = Depends
         set_setting(db, "delivery_fee", str(round(float(payload.delivery_fee), 2)))
     if payload.free_shipping_threshold is not None:
         set_setting(db, "free_shipping_threshold", str(round(float(payload.free_shipping_threshold), 2)))
-    if payload.payu_key is not None:
-        set_setting(db, "payu_key", payload.payu_key.strip())
-    if payload.payu_salt is not None:
-        # If the salt is masked (starts with ***) keep the old value
-        salt_val = payload.payu_salt.strip()
-        if not salt_val.startswith("***"):
-            set_setting(db, "payu_salt", salt_val)
-    if payload.payu_test_mode is not None:
-        set_setting(db, "payu_test_mode", "true" if payload.payu_test_mode else "false")
+    if payload.cod_advance_percent is not None:
+        set_setting(db, "cod_advance_percent", str(round(float(payload.cod_advance_percent), 1)))
     if payload.cod_enabled is not None:
         set_setting(db, "cod_enabled", "true" if payload.cod_enabled else "false")
     db.commit()
@@ -602,150 +549,66 @@ def admin_update_settings(payload: schemas.SettingsUpdate, db: Session = Depends
 
 
 # ============================================================
-# PAYU WEBHOOK  (PayU POSTs here on payment success/failure)
+# RAZORPAY  (create order + verify payment)
 # ============================================================
-@app.post("/api/webhooks/payu")
-async def payu_webhook(request: Request, db: Session = Depends(get_db)):
-    """Public endpoint — PayU sends form-encoded payment notifications here."""
-    from urllib.parse import parse_qs
+@app.post("/api/razorpay/create-order", response_model=schemas.RazorpayOrderResponse)
+def razorpay_create_order(payload: schemas.RazorpayOrderRequest):
+    """Create a Razorpay order for the given amount. Returns order_id + key for the frontend."""
+    amount_paise = int(round(payload.amount * 100))
+    if amount_paise < 100:
+        raise HTTPException(status_code=400, detail="Amount must be at least ₹1.00")
 
-    body = await request.body()
-    params = {k: v[0] if isinstance(v, list) else v for k, v in parse_qs(body.decode("utf-8")).items()}
+    try:
+        result = razorpay_helper.create_order(
+            amount_paise=amount_paise,
+            currency=payload.currency,
+            receipt=payload.receipt,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to create Razorpay order: {exc}")
 
-    txnid = params.get("txnid", "")
-    payu_status = params.get("status", "")
-    mihpayid = params.get("mihpayid", "")
+    return schemas.RazorpayOrderResponse(
+        order_id=result["id"],
+        amount=result["amount"],
+        currency=result["currency"],
+        key_id=razorpay_helper.get_key_id(),
+    )
 
-    if not txnid:
-        return Response(status_code=200)
 
-    # Look up the order by txnid stored in udf1 (our order_number)
-    order = db.query(models.Order).filter(models.Order.order_number == txnid).first()
+@app.post("/api/razorpay/verify")
+def razorpay_verify_payment(payload: schemas.RazorpayVerifyRequest, db: Session = Depends(get_db)):
+    """Verify Razorpay payment signature and mark the order as paid."""
+    if not payload.razorpay_order_id or not payload.razorpay_payment_id or not payload.razorpay_signature:
+        raise HTTPException(status_code=400, detail="Missing payment verification fields")
+
+    # Verify HMAC-SHA256 signature
+    if not razorpay_helper.verify_payment_signature(
+        payload.razorpay_order_id,
+        payload.razorpay_payment_id,
+        payload.razorpay_signature,
+    ):
+        raise HTTPException(status_code=400, detail="Payment signature verification failed")
+
+    # Find and update the order
+    order = db.query(models.Order).options(joinedload(models.Order.items)).filter(
+        models.Order.order_number == payload.order_number
+    ).first()
     if not order:
-        # try matching by payu_txnid if this is a retry
-        return Response(status_code=200)
-
-    # Verify hash
-    raw = {r.key: r.value for r in db.query(models.Setting).all()}
-    salt = raw.get("payu_salt", "")
-    if salt:
-        if not verify_hash_valid(salt, params):
-            return Response(status_code=200)  # invalid hash — ignore
-
-    # Update order based on status
-    if payu_status.lower() == "success":
-        order.status = models.OrderStatus.paid
-        order.payu_txnid = mihpayid
-    elif payu_status.lower() in ("failure", "bounced", "dropped", "usercancelled"):
-        order.status = models.OrderStatus.cancelled
-        order.payu_txnid = mihpayid
-        # Restore stock
-        for item in order.items:
-            size_row = db.query(models.ProductSize).filter(
-                models.ProductSize.product_id == item.product_id,
-                models.ProductSize.size == item.size,
-            ).with_for_update().first()
-            if size_row:
-                size_row.stock += item.quantity
-
-    db.commit()
-    return Response(status_code=200)
-
-
-# ============================================================
-# PAYU SURL / FURL  (PayU POSTs here after redirect)
-# ============================================================
-async def _handle_payu_redirect(request: Request, db: Session) -> RedirectResponse:
-    """Shared handler for PayU surl/furl — verify hash, update order, redirect to SPA."""
-    from urllib.parse import parse_qs
-
-    body = await request.body()
-    params = {k: v[0] if isinstance(v, list) else v for k, v in parse_qs(body.decode("utf-8")).items()}
-
-    txnid = params.get("txnid", "")
-    payu_status = params.get("status", "")
-    mihpayid = params.get("mihpayid", "")
-    amount = params.get("amount", "")
-
-    # Look up order
-    order = db.query(models.Order).options(joinedload(models.Order.items)).filter(
-        models.Order.order_number == txnid
-    ).first()
-
-    if order:
-        # Verify hash
-        raw = {r.key: r.value for r in db.query(models.Setting).all()}
-        salt = raw.get("payu_salt", "")
-        hash_ok = True
-        if salt:
-            hash_ok = verify_hash_valid(salt, params)
-
-        if hash_ok:
-            if payu_status.lower() == "success":
-                order.status = models.OrderStatus.paid
-                order.payu_txnid = mihpayid
-            elif payu_status.lower() in ("failure", "bounced", "dropped", "usercancelled"):
-                order.status = models.OrderStatus.cancelled
-                order.payu_txnid = mihpayid
-                for item in order.items:
-                    size_row = db.query(models.ProductSize).filter(
-                        models.ProductSize.product_id == item.product_id,
-                        models.ProductSize.size == item.size,
-                    ).with_for_update().first()
-                    if size_row:
-                        size_row.stock += item.quantity
-            db.commit()
-
-    # Redirect to SPA order confirmation page with status params
-    status_val = payu_status or "pending"
-    redirect_url = f"/order/confirm?status={status_val}&txnid={txnid}&payuid={mihpayid}&amount={amount}"
-    return RedirectResponse(url=redirect_url, status_code=302)
-
-
-@app.post("/api/payu/surl")
-async def payu_success_redirect(request: Request, db: Session = Depends(get_db)):
-    """PayU success redirect — receives POST, redirects to SPA."""
-    return await _handle_payu_redirect(request, db)
-
-
-@app.post("/api/payu/furl")
-async def payu_failure_redirect(request: Request, db: Session = Depends(get_db)):
-    """PayU failure redirect — receives POST, redirects to SPA."""
-    return await _handle_payu_redirect(request, db)
-
-
-@app.post("/api/payu/verify/{order_number}")
-def payu_verify_order(order_number: str, db: Session = Depends(get_db)):
-    """Fallback verification — calls PayU verify_payment API."""
-    order = db.query(models.Order).options(joinedload(models.Order.items)).filter(
-        models.Order.order_number == order_number
-    ).first()
-    if not order or order.payment_method != "online":
         raise HTTPException(status_code=404, detail="Order not found")
 
-    raw = {r.key: r.value for r in db.query(models.Setting).all()}
-    key = raw.get("payu_key", "")
-    salt = raw.get("payu_salt", "")
-    is_test = raw.get("payu_test_mode", "true") == "true"
+    order.razorpay_order_id = payload.razorpay_order_id
+    order.razorpay_payment_id = payload.razorpay_payment_id
+    order.razorpay_signature = payload.razorpay_signature
 
-    if not key or not salt:
-        raise HTTPException(status_code=400, detail="PayU credentials not configured")
+    if order.payment_method == "online":
+        order.status = models.OrderStatus.paid
+    elif order.payment_method == "cod":
+        # COD advance paid — order stays pending but advance is recorded
+        order.status = models.OrderStatus.paid
 
-    txnid = order.order_number
-    result = payu.verify_payment_api(key, salt, txnid, is_test)
-    if not result:
-        raise HTTPException(status_code=502, detail="Could not verify with PayU")
-
-    status_info = result.get("status", -1)
-    if isinstance(status_info, dict) and status_info.get("result") == "success":
-        txn = status_info.get("transaction_details", {}).get(txnid, {})
-        if txn.get("status") == "success":
-            order.status = models.OrderStatus.paid
-            order.payu_txnid = txn.get("mihpayid", "")
-            db.commit()
-            return {"verified": True, "status": "paid"}
-
-    return {"verified": False, "status": order.status.value}
+    db.commit()
+    db.refresh(order)
+    return {"verified": True, "status": order.status.value}
 
 
 # ============================================================

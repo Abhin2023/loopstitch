@@ -154,7 +154,11 @@ class Order(Base):
     shipping_fee = Column(Float, default=0)
     total = Column(Float, default=0)
     payment_method = Column(String(20), default="cod")  # "cod" or "online"
-    payu_txnid = Column(String(100), default="")  # PayU mihpayid for online payments
+    razorpay_order_id = Column(String(100), default="")
+    razorpay_payment_id = Column(String(100), default="")
+    razorpay_signature = Column(String(200), default="")
+    cod_advance_paid = Column(Float, default=0.0)   # amount paid online for COD orders
+    cod_advance_percent = Column(Float, default=0.0) # percentage charged upfront
     created_at = Column(DateTime, default=_utcnow)
 
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")

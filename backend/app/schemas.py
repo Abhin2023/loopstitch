@@ -129,7 +129,9 @@ class OrderOut(BaseModel):
     shipping_fee: float
     total: float
     payment_method: str = "cod"
-    payu_txnid: str = ""
+    razorpay_order_id: str = ""
+    cod_advance_paid: float = 0.0
+    cod_advance_percent: float = 0.0
     created_at: datetime
     items: List[OrderItemOut] = []
 
@@ -141,20 +143,25 @@ class OrderStatusUpdate(BaseModel):
     status: models.OrderStatus
 
 
-class PayuFormOut(BaseModel):
-    """Form data returned to frontend for auto-submitting to PayU."""
-    payment_url: str
-    key: str
-    txnid: str
-    amount: str
-    productinfo: str
-    firstname: str
-    email: str
-    phone: str
-    surl: str
-    furl: str
-    hash: str
-    udf1: str = ""
+# ---------- Razorpay ----------
+class RazorpayOrderRequest(BaseModel):
+    amount: float = Field(gt=0, description="Amount in INR (e.g. 199.00)")
+    currency: str = "INR"
+    receipt: str = ""
+
+
+class RazorpayOrderResponse(BaseModel):
+    order_id: str
+    amount: int          # amount in paise
+    currency: str
+    key_id: str          # public key for frontend
+
+
+class RazorpayVerifyRequest(BaseModel):
+    razorpay_order_id: str
+    razorpay_payment_id: str
+    razorpay_signature: str
+    order_number: str
 
 
 # ---------- Coupons ----------
@@ -261,18 +268,14 @@ class QuoteOut(BaseModel):
 class SettingsOut(BaseModel):
     delivery_fee: float
     free_shipping_threshold: float
-    payu_key: str = ""
-    payu_salt: str = ""
-    payu_test_mode: bool = True
+    cod_advance_percent: float = 10.0
     cod_enabled: bool = False
 
 
 class SettingsUpdate(BaseModel):
     delivery_fee: Optional[float] = Field(default=None, ge=0)
     free_shipping_threshold: Optional[float] = Field(default=None, ge=0)
-    payu_key: Optional[str] = None
-    payu_salt: Optional[str] = None
-    payu_test_mode: Optional[bool] = None
+    cod_advance_percent: Optional[float] = Field(default=None, ge=0, le=100)
     cod_enabled: Optional[bool] = None
 
 
@@ -283,4 +286,4 @@ class PublicShippingSettings(BaseModel):
 
 class PublicCheckoutSettings(BaseModel):
     cod_enabled: bool
-    payu_test_mode: bool = True
+    cod_advance_percent: float = 10.0

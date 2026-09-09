@@ -94,6 +94,13 @@ def generate_invoice_pdf(order) -> bytes:
         totals_data.append([f"Coupon ({code})", f"- Rs. {order.coupon_discount:,.2f}"])
     totals_data.append(["Shipping", f"Rs. {order.shipping_fee:,.2f}"])
     totals_data.append(["TOTAL", f"Rs. {order.total:,.2f}"])
+
+    # COD advance payment breakdown
+    if getattr(order, "payment_method", "") == "cod" and getattr(order, "cod_advance_paid", 0) > 0:
+        totals_data.append(["", ""])
+        totals_data.append([f"Advance paid online ({order.cod_advance_percent:.0f}%)", f"Rs. {order.cod_advance_paid:,.2f}"])
+        balance = round(order.total - order.cod_advance_paid, 2)
+        totals_data.append(["Balance on delivery", f"Rs. {balance:,.2f}"])
     totals_table = Table(totals_data, colWidths=[140 * mm, 30 * mm], hAlign="RIGHT")
     totals_table.setStyle(TableStyle([
         ("ALIGN", (0, 0), (-1, -1), "RIGHT"),

@@ -1,39 +1,39 @@
 import { useEffect, useState } from 'react'
-import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { formatINR, formatDate } from '../utils/format'
 import client from '../api/client'
 
 export default function OrderConfirmation() {
   const location = useLocation()
-  const [searchParams] = useSearchParams()
   const orderFromState = location.state?.order
-  const payuFromBolt = location.state?.payu
-
-  const payuStatus = payuFromBolt?.status || searchParams.get('status')
-  const payuTxnid = payuFromBolt?.txnid || searchParams.get('txnid')
-  const orderId = orderFromState?.order_number || searchParams.get('order_number') || payuTxnid
 
   const [order, setOrder] = useState(orderFromState || null)
   const [paymentVerified, setPaymentVerified] = useState(null)
 
   useEffect(() => {
-    if (!orderId || order) return
-    client.get(`/api/orders/${orderId}`).then((res) => {
+    if (!orderFromState?.order_number || order) return
+    client.get(`/api/orders/${orderFromState.order_number}`).then((res) => {
       setOrder(res.data)
     }).catch(() => {})
-  }, [orderId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [orderFromState, order])
 
   useEffect(() => {
-    const txnid = order?.order_number || payuTxnid
-    if (!txnid || paymentVerified !== null) return
-    if (order?.payment_method !== 'online' && !payuFromBolt) return
-    client.post(`/api/payu/verify/${txnid}`).then((res) => {
+    if (!order?.order_number || paymentVerified !== null) return
+    if (order.payment_method !== 'online' && order.payment_method !== 'cod') return
+    if (!order.razorpay_order_id) return
+
+    client.post('/api/razorpay/verify', {
+      razorpay_order_id: order.razorpay_order_id,
+      razorpay_payment_id: '',
+      razorpay_signature: '',
+      order_number: order.order_number,
+    }).then((res) => {
       setPaymentVerified(res.data.verified)
     }).catch(() => {
       setPaymentVerified(false)
     })
-  }, [order, payuTxnid, payuFromBolt, paymentVerified])
+  }, [order, paymentVerified])
 
   if (!order) {
     return (
@@ -47,9 +47,10 @@ export default function OrderConfirmation() {
   const nameParts = (order.customer_name || '').split(' ')
   const displayName = nameParts[0] || 'Customer'
 
-  const isOnlinePayment = order.payment_method === 'online' || !!payuFromBolt
-  const boltSuccess = payuFromBolt?.status === 'SUCCESS'
-  const paymentFailed = !boltSuccess && (payuStatus === 'failure' || paymentVerified === false || order.status === 'cancelled')
+  const isOnlinePayment = order.payment_method === 'online'
+  const isCodPayment = order.payment_method === 'cod'
+  const hasAdvance = isCodPayment && (order.cod_advance_paid || 0) > 0
+  const paymentFailed = paymentVerified === false || order.status === 'cancelled'
 
   return (
     <div className="max-w-2xl mx-auto px-5 sm:px-8 py-16 sm:py-24">
@@ -73,7 +74,7 @@ export default function OrderConfirmation() {
         ) : (
           <>
             <span className="font-mono text-xs text-acid tracking-widest uppercase">
-              {isOnlinePayment ? 'Payment confirmed' : 'Order confirmed'}
+              {isOnlinePayment ? 'Payment confirmed' : hasAdvance ? 'Advance paid — order confirmed' : 'Order confirmed'}
             </span>
             <h1 className="font-display text-3xl sm:text-4xl uppercase text-paper mt-2 mb-1">Thank you, {displayName}</h1>
             <p className="text-slate text-sm font-mono mb-8">#{order.order_number} · {formatDate(order.created_at)}</p>
@@ -96,6 +97,20 @@ export default function OrderConfirmation() {
                 <div className="flex justify-between text-xs font-mono text-slate"><span>Shipping</span><span>{formatINR(order.shipping_fee)}</span></div>
                 <div className="flex justify-between text-sm font-mono text-paper pt-1"><span>Total</span><span>{formatINR(order.total)}</span></div>
               </div>
+
+              {/* COD advance breakdown */}
+              {hasAdvance && (
+                <div className="border-t border-panel-2 mt-3 pt-3 space-y-1">
+                  <div className="flex justify-between text-xs font-mono text-acid">
+                    <span>Advance paid online ({order.cod_advance_percent}%)</span>
+                    <span>{formatINR(order.cod_advance_paid)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs font-mono text-slate">
+                    <span>Balance on delivery ({100 - order.cod_advance_percent}%)</span>
+                    <span>{formatINR(order.total - order.cod_advance_paid)}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="border border-panel-2 p-6 mb-8 text-sm text-paper/80 space-y-1">
@@ -103,7 +118,9 @@ export default function OrderConfirmation() {
               <p>{order.shipping_address}</p>
               <p>{order.city} {order.state} {order.pincode}</p>
               <p className="font-mono text-xs text-slate mt-2">{order.customer_phone} · {order.customer_email}</p>
-              <p className="font-mono text-xs text-slate mt-1">Payment: {isOnlinePayment ? 'Online (PayU)' : 'Cash on Delivery'}</p>
+              <p className="font-mono text-xs text-slate mt-1">
+                Payment: {isOnlinePayment ? 'Online (Razorpay)' : hasAdvance ? `COD — ${order.cod_advance_percent}% paid online, balance on delivery` : 'Cash on Delivery'}
+              </p>
             </div>
 
             <div className="flex flex-wrap gap-4">

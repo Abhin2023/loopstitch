@@ -25,12 +25,14 @@ export default function Checkout() {
   const [error, setError] = useState(null)
   const [paymentMethod, setPaymentMethod] = useState('online')
   const [codEnabled, setCodEnabled] = useState(false)
+  const [codAdvancePercent, setCodAdvancePercent] = useState(10)
   const [payProcessing, setPayProcessing] = useState(false)
 
   useEffect(() => {
     client.get('/api/settings/checkout').then((res) => {
       const codOn = res.data.cod_enabled
       setCodEnabled(codOn)
+      setCodAdvancePercent(res.data.cod_advance_percent || 10)
       if (!codOn) setPaymentMethod('online')
     }).catch(() => {})
   }, [])
@@ -75,54 +77,67 @@ export default function Checkout() {
     setCouponError(null)
   }
 
-  const launchPayUPopup = (payuFormData, orderData) => {
-    if (typeof window.Bolt === 'undefined') {
+  const launchRazorpay = (orderData, amountToPay, orderNumber) => {
+    if (!window.Razorpay) {
       setError('Payment module failed to load. Please refresh and try again.')
       setPayProcessing(false)
       return
     }
 
-    const data = {
-      key: payuFormData.key,
-      txnid: payuFormData.txnid,
-      amount: payuFormData.amount,
-      productinfo: payuFormData.productinfo,
-      firstname: payuFormData.firstname,
-      email: payuFormData.email,
-      phone: payuFormData.phone,
-      surl: payuFormData.surl,
-      furl: payuFormData.furl,
-      hash: payuFormData.hash,
-      udf1: payuFormData.udf1 || '',
+    const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID
+    if (!keyId) {
+      setError('Payment is not configured. Please try again later.')
+      setPayProcessing(false)
+      return
     }
 
-    const handlers = {
-      catchException: function (BOLT) {
-        console.log('PayU exception:', BOLT)
-        setError('Payment failed. Please try again.')
-        setPayProcessing(false)
-      },
-      responseHandler: function (BOLT) {
-        if (BOLT.response.txnStatus === 'SUCCESS') {
+    const options = {
+      key: keyId,
+      amount: Math.round(amountToPay * 100),
+      currency: 'INR',
+      name: 'Loopstitch Co.',
+      description: `Order #${orderNumber}`,
+      order_id: orderData.razorpay_order_id,
+      handler: async function (response) {
+        try {
+          await client.post('/api/razorpay/verify', {
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+            order_number: orderNumber,
+          })
           clearCart()
           setPayProcessing(false)
           navigate('/order/confirm', {
-            state: { order: orderData, payu: BOLT.response },
+            state: { order: { ...orderData, razorpay_order_id: response.razorpay_order_id } },
           })
-        } else if (BOLT.response.txnStatus === 'FAILED') {
-          setError('Payment failed. Please try again.')
-          setPayProcessing(false)
-        } else if (BOLT.response.txnStatus === 'CANCEL') {
-          setError('Payment was cancelled.')
-          setPayProcessing(false)
-        } else {
-          setError('Payment could not be completed. Please try again.')
+        } catch {
+          setError('Payment verification failed. Please contact support.')
           setPayProcessing(false)
         }
       },
+      prefill: {
+        name: form.customer_name,
+        email: form.customer_email,
+        contact: form.customer_phone,
+      },
+      theme: {
+        color: '#FF3B5C',
+      },
+      modal: {
+        ondismiss: function () {
+          setError('Payment was cancelled. Your order has not been placed.')
+          setPayProcessing(false)
+        },
+      },
     }
 
-    window.Bolt.launch(data, handlers)
+    const rzp = new window.Razorpay(options)
+    rzp.on('payment.failed', function () {
+      setError('Payment failed. Please try again.')
+      setPayProcessing(false)
+    })
+    rzp.open()
   }
 
   const handleSubmit = async (e) => {
@@ -140,13 +155,30 @@ export default function Checkout() {
       const data = res.data
       const orderData = data.order
 
-      if (paymentMethod === 'online' && data.payu_form_data) {
+      // Determine how much to charge via Razorpay
+      let amountToPay = orderData.total
+      if (paymentMethod === 'cod') {
+        amountToPay = orderData.cod_advance_paid
+      }
+
+      if (amountToPay > 0) {
+        // Create Razorpay order for the amount to be paid
         setSubmitting(false)
         setPayProcessing(true)
-        launchPayUPopup(data.payu_form_data, orderData)
+        try {
+          const rpRes = await client.post('/api/razorpay/create-order', {
+            amount: amountToPay,
+            receipt: orderData.order_number,
+          })
+          launchRazorpay({ ...orderData, razorpay_order_id: rpRes.data.order_id }, amountToPay, orderData.order_number)
+        } catch {
+          setError('Failed to initialize payment. Please try again.')
+          setPayProcessing(false)
+        }
         return
       }
 
+      // No online payment needed (shouldn't happen with current logic, but safe fallback)
       clearCart()
       navigate('/order/confirm', { state: { order: orderData } })
     } catch (err) {
@@ -164,6 +196,10 @@ export default function Checkout() {
       </div>
     )
   }
+
+  // Calculate COD advance for display
+  const codAdvanceAmount = quote ? Math.round(quote.total * codAdvancePercent / 100 * 100) / 100 : 0
+  const codBalanceAmount = quote ? Math.round((quote.total - codAdvanceAmount) * 100) / 100 : 0
 
   return (
     <div className="max-w-5xl mx-auto px-5 sm:px-8 py-14 sm:py-20">
@@ -211,10 +247,20 @@ export default function Checkout() {
               </label>
             )}
             {paymentMethod === 'online' && (
-              <p className="font-mono text-[11px] text-slate">A secure PayU popup will appear to complete your payment.</p>
+              <p className="font-mono text-[11px] text-slate">A secure Razorpay popup will appear to complete your payment.</p>
             )}
             {paymentMethod === 'cod' && (
-              <p className="font-mono text-[11px] text-slate">Pay with cash when your order arrives.</p>
+              <div className="space-y-1">
+                <p className="font-mono text-[11px] text-slate">
+                  Pay {codAdvancePercent}% online now via Razorpay, rest {100 - codAdvancePercent}% on delivery.
+                </p>
+                {quote && (
+                  <div className="font-mono text-[11px] text-paper/70 space-y-0.5 mt-2">
+                    <p>Advance online: <span className="text-acid">{formatINR(codAdvanceAmount)}</span></p>
+                    <p>Balance on delivery: <span className="text-paper">{formatINR(codBalanceAmount)}</span></p>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -227,7 +273,7 @@ export default function Checkout() {
             disabled={submitting}
             className="w-full sm:w-auto bg-riot text-ink font-mono text-sm uppercase tracking-widest px-8 py-3.5 hover:bg-acid transition-colors disabled:opacity-60"
           >
-            {submitting ? 'Placing order…' : paymentMethod === 'online' ? 'Place order · Pay online' : 'Place order · Cash on delivery'}
+            {submitting ? 'Placing order…' : paymentMethod === 'online' ? 'Place order · Pay online' : `Place order · Pay ${formatINR(codAdvanceAmount)} now`}
           </button>
         </form>
 
@@ -300,6 +346,18 @@ export default function Checkout() {
                 <span>Total to pay</span>
                 <span className="font-mono">{formatINR(quote.total)}</span>
               </div>
+              {paymentMethod === 'cod' && quote.total > 0 && (
+                <div className="border-t border-panel-2 pt-3 space-y-1">
+                  <div className="flex justify-between text-xs font-mono text-acid">
+                    <span>Pay now ({codAdvancePercent}%)</span>
+                    <span>{formatINR(codAdvanceAmount)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs font-mono text-slate">
+                    <span>On delivery ({100 - codAdvancePercent}%)</span>
+                    <span>{formatINR(codBalanceAmount)}</span>
+                  </div>
+                </div>
+              )}
             </>
           )}
           {!quote && <p className="font-mono text-[11px] text-slate">Delivery calculated with your order</p>}
