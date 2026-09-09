@@ -373,9 +373,6 @@ def create_order(payload: schemas.OrderCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(order)
 
-    # Send WhatsApp order confirmation (best-effort — does not block checkout)
-    _send_whatsapp_notification(db, order)
-
     return {"order": schemas.OrderOut.model_validate(order).model_dump()}
 
 
@@ -563,6 +560,7 @@ def admin_update_settings(payload: schemas.SettingsUpdate, db: Session = Depends
 def razorpay_create_order(payload: schemas.RazorpayOrderRequest):
     """Create a Razorpay order for the given amount. Returns order_id + key for the frontend."""
     amount_paise = int(round(payload.amount * 100))
+    logger.info("Razorpay create-order: amount=%s paise, receipt=%s", amount_paise, payload.receipt)
     if amount_paise < 100:
         raise HTTPException(status_code=400, detail="Amount must be at least ₹1.00")
 
@@ -573,6 +571,7 @@ def razorpay_create_order(payload: schemas.RazorpayOrderRequest):
             receipt=payload.receipt,
         )
     except Exception as exc:
+        logger.error("Razorpay create-order failed: %s", exc, exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to create Razorpay order: {exc}")
 
     return schemas.RazorpayOrderResponse(
@@ -616,6 +615,10 @@ def razorpay_verify_payment(payload: schemas.RazorpayVerifyRequest, db: Session 
 
     db.commit()
     db.refresh(order)
+
+    # Send WhatsApp order confirmation after successful payment
+    _send_whatsapp_notification(db, order)
+
     return {"verified": True, "status": order.status.value}
 
 

@@ -194,8 +194,9 @@ export default function Checkout() {
             receipt: orderData.order_number,
           })
           launchRazorpay({ ...orderData, razorpay_order_id: rpRes.data.order_id }, amountToPay, orderData.order_number)
-        } catch {
-          setError('Failed to initialize payment. Please try again.')
+        } catch (err) {
+          const detail = err.response?.data?.detail || 'Failed to initialize payment. Please try again.'
+          setError(detail)
           setPayProcessing(false)
         }
         return
