@@ -53,7 +53,7 @@ export default function AdminLayout() {
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-ink border-b border-panel-2 h-14 flex items-center px-4 gap-4">
         <button
           onClick={() => setSidebarOpen(true)}
-          className="text-paper hover:text-acid transition-colors shrink-0 p-1"
+          className="text-paper hover:text-acid transition-colors shrink-0 p-2 min-w-11 min-h-11 flex items-center justify-center"
           aria-label="Open menu"
         >
           <HamburgerIcon />
@@ -85,7 +85,7 @@ export default function AdminLayout() {
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden text-slate hover:text-paper transition-colors p-1"
+            className="lg:hidden text-slate hover:text-paper transition-colors p-2 min-w-11 min-h-11 flex items-center justify-center"
             aria-label="Close menu"
           >
             <CloseIcon />
@@ -112,14 +112,14 @@ export default function AdminLayout() {
         {/* Footer */}
         <div className="px-5 py-4 border-t border-panel-2">
           {admin && <p className="font-mono text-[11px] text-slate mb-3 truncate">Signed in as {admin.username}</p>}
-          <button onClick={logout} className="font-mono text-xs uppercase tracking-widest text-riot hover:text-acid">
+          <button onClick={logout} className="font-mono text-xs uppercase tracking-widest text-riot hover:text-acid py-2">
             Log out
           </button>
         </div>
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 min-w-0 pt-14 lg:pt-0 px-4 sm:px-8 lg:px-10 py-6 lg:py-10">
+      <main className="flex-1 min-w-0 lg:ml-60 pt-14 lg:pt-0 px-4 sm:px-8 lg:px-10 py-6 lg:py-10">
         <Outlet />
       </main>
     </div>

@@ -27,12 +27,12 @@ export default function AdminDashboard() {
 
   return (
     <div>
-      <h1 className="font-display text-3xl uppercase text-paper mb-8">Dashboard</h1>
+      <h1 className="font-display text-2xl sm:text-3xl uppercase text-paper mb-8">Dashboard</h1>
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-10">
         {cards.map((c) => (
-          <div key={c.label} className="border border-panel-2 p-5">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-slate mb-2">{c.label}</p>
-            <p className={`font-display text-2xl ${c.accent ? 'text-acid' : c.danger ? 'text-riot' : c.warn ? 'text-acid' : 'text-paper'}`}>
+          <div key={c.label} className="border border-panel-2 p-3 sm:p-5 min-w-0 overflow-hidden">
+            <p className="font-mono text-[9px] sm:text-[10px] uppercase tracking-[0.12em] sm:tracking-widest text-slate mb-2 break-words">{c.label}</p>
+            <p className={`font-display text-lg sm:text-2xl truncate ${c.accent ? 'text-acid' : c.danger ? 'text-riot' : c.warn ? 'text-acid' : 'text-paper'}`} title={String(c.value)}>
               {c.value}
             </p>
           </div>

@@ -65,8 +65,8 @@ export default function ProductDetail() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-5 sm:px-8 py-10 sm:py-16">
-      <button onClick={() => navigate(-1)} className="font-mono text-xs text-slate hover:text-paper mb-8 uppercase tracking-widest">
+    <div className="max-w-7xl mx-auto px-5 sm:px-8 py-8 sm:py-16">
+      <button onClick={() => navigate(-1)} className="font-mono text-xs text-slate hover:text-paper mb-6 sm:mb-8 uppercase tracking-widest py-2">
         ← Back
       </button>
 
@@ -97,12 +97,12 @@ export default function ProductDetail() {
             )}
           </div>
           {images.length > 1 && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 overflow-x-auto pb-1">
               {images.map((img, i) => (
                 <button
                   key={img.id}
                   onClick={() => setActiveImage(i)}
-                  className={`w-16 h-16 sm:w-20 sm:h-20 overflow-hidden border ${i === activeImage ? 'border-acid' : 'border-panel-2'}`}
+                  className={`w-16 h-16 sm:w-20 sm:h-20 shrink-0 overflow-hidden border ${i === activeImage ? 'border-acid' : 'border-panel-2'}`}
                 >
                   <img src={mediaUrl(img.url)} alt="" className="w-full h-full object-cover" />
                 </button>
@@ -144,15 +144,15 @@ export default function ProductDetail() {
               <div className="flex items-center border border-panel-2 w-fit">
                 <button
                   onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  className="w-10 h-10 font-mono text-paper hover:text-acid"
+                  className="w-11 h-11 font-mono text-paper hover:text-acid"
                   aria-label="Decrease quantity"
                 >
                   −
                 </button>
-                <span className="w-10 text-center font-mono text-paper">{quantity}</span>
+                <span className="w-11 text-center font-mono text-paper">{quantity}</span>
                 <button
                   onClick={() => setQuantity((q) => Math.min(maxForSize, q + 1))}
-                  className="w-10 h-10 font-mono text-paper hover:text-acid"
+                  className="w-11 h-11 font-mono text-paper hover:text-acid"
                   aria-label="Increase quantity"
                 >
                   +

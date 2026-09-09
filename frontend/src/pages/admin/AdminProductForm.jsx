@@ -117,7 +117,7 @@ export default function AdminProductForm() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="font-display text-3xl uppercase text-paper mb-8">{isEdit ? 'Edit product' : 'New product'}</h1>
+      <h1 className="font-display text-2xl sm:text-3xl uppercase text-paper mb-8">{isEdit ? 'Edit product' : 'New product'}</h1>
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="border border-panel-2 p-6 space-y-5">
@@ -199,7 +199,7 @@ export default function AdminProductForm() {
                     <button
                       type="button"
                       onClick={() => handleImageDelete(img.id)}
-                      className="absolute top-1 right-1 bg-ink/80 text-riot text-xs w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute top-1 right-1 bg-ink/80 text-riot text-xs w-11 h-11 flex items-center justify-center opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity"
                       aria-label="Delete image"
                     >
                       ✕

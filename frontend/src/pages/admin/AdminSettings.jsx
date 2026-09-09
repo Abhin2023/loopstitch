@@ -46,7 +46,7 @@ export default function AdminSettings() {
 
   return (
     <div className="max-w-xl">
-      <h1 className="font-display text-3xl uppercase text-paper mb-8">Store settings</h1>
+      <h1 className="font-display text-2xl sm:text-3xl uppercase text-paper mb-8">Store settings</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Delivery charges */}
@@ -76,7 +76,7 @@ export default function AdminSettings() {
         {/* Payment methods */}
         <div className="border border-panel-2 p-6 space-y-5">
           <h2 className="font-mono text-xs uppercase tracking-widest text-acid">Payment methods</h2>
-          <label className="flex items-center gap-3 cursor-pointer">
+          <label className="flex items-start gap-3 cursor-pointer">
             <input
               type="checkbox" name="cod_enabled"
               checked={form.cod_enabled} onChange={handleChange}
@@ -109,7 +109,7 @@ export default function AdminSettings() {
         {error && <div className="border border-riot bg-riot/10 text-riot text-sm font-mono px-4 py-3">{error}</div>}
         {saved && <div className="border border-acid bg-acid/10 text-acid text-sm font-mono px-4 py-3">Settings saved — applies to new checkouts immediately.</div>}
 
-        <button type="submit" disabled={saving} className="bg-riot text-ink font-mono text-sm uppercase tracking-widest px-8 py-3.5 hover:bg-acid transition-colors disabled:opacity-60">
+        <button type="submit" disabled={saving} className="w-full sm:w-auto bg-riot text-ink font-mono text-sm uppercase tracking-widest px-6 sm:px-8 py-3.5 hover:bg-acid transition-colors disabled:opacity-60">
           {saving ? 'Saving…' : 'Save settings'}
         </button>
       </form>

@@ -77,12 +77,12 @@ export default function Home() {
 
       {/* FEATURED */}
       <section className="max-w-7xl mx-auto px-5 sm:px-8 py-16 sm:py-24">
-        <div className="flex items-end justify-between mb-10">
+        <div className="flex flex-wrap items-end justify-between gap-4 mb-10">
           <div>
             <p className="font-mono text-xs text-riot tracking-widest uppercase mb-2">Featured</p>
             <h2 className="font-display text-3xl sm:text-4xl uppercase text-paper">This week's picks</h2>
           </div>
-          <Link to="/shop" className="hidden sm:block font-mono text-xs uppercase tracking-widest text-slate hover:text-acid transition-colors">
+          <Link to="/shop" className="font-mono text-xs uppercase tracking-widest text-slate hover:text-acid transition-colors py-2">
             View all →
           </Link>
         </div>
@@ -94,7 +94,7 @@ export default function Home() {
             No products yet — add some from the admin dashboard.
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-12">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 sm:gap-x-6 gap-y-10 sm:gap-y-12">
             {products.map((p, i) => (
               <ProductCard key={p.id} product={p} index={i} />
             ))}
@@ -105,7 +105,7 @@ export default function Home() {
       <hr className="cutline max-w-7xl mx-auto" />
 
       {/* PROCESS STRIP */}
-      <section className="max-w-7xl mx-auto px-5 sm:px-8 py-16 sm:py-24 grid sm:grid-cols-3 gap-10">
+      <section className="max-w-7xl mx-auto px-5 sm:px-8 py-12 sm:py-24 grid sm:grid-cols-3 gap-8 sm:gap-10">
         {[
           { label: 'Design', copy: 'Original anime & streetwear graphics, drawn in-house per drop.' },
           { label: 'Print', copy: 'DTF printed on 240 GSM heavyweight cotton for a premium, durable finish.' },

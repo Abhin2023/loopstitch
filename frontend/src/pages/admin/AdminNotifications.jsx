@@ -62,7 +62,7 @@ export default function AdminNotifications() {
           <button
             key={f}
             onClick={() => { setStatusFilter(f); setPage(1) }}
-            className={`font-mono text-[11px] uppercase tracking-widest px-3 py-1.5 border transition-colors ${
+            className={`font-mono text-[11px] uppercase tracking-widest px-3 py-2.5 min-h-11 border transition-colors ${
               statusFilter === f
                 ? 'border-acid bg-acid/10 text-acid'
                 : 'border-panel-2 text-slate hover:text-paper'
@@ -112,7 +112,7 @@ export default function AdminNotifications() {
                       <button
                         onClick={() => handleResend(n)}
                         disabled={resending === n.id}
-                        className="font-mono text-[11px] uppercase tracking-widest text-acid hover:underline disabled:opacity-50"
+                        className="font-mono text-[11px] uppercase tracking-widest text-acid hover:underline disabled:opacity-50 px-2 py-2"
                       >
                         {resending === n.id ? 'Sending…' : 'Resend'}
                       </button>
@@ -135,17 +135,17 @@ export default function AdminNotifications() {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="font-mono text-[11px] uppercase tracking-widest px-3 py-1.5 border border-panel-2 text-slate hover:text-paper disabled:opacity-40"
+              className="font-mono text-[11px] uppercase tracking-widest px-3 py-2.5 min-h-11 border border-panel-2 text-slate hover:text-paper disabled:opacity-40"
             >
               ← Prev
             </button>
-            <span className="font-mono text-[11px] text-slate px-3 py-1.5">
+              <span className="font-mono text-[11px] text-slate px-3 py-2.5 min-h-11 flex items-center">
               {page} / {totalPages}
             </span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="font-mono text-[11px] uppercase tracking-widest px-3 py-1.5 border border-panel-2 text-slate hover:text-paper disabled:opacity-40"
+              className="font-mono text-[11px] uppercase tracking-widest px-3 py-2.5 min-h-11 border border-panel-2 text-slate hover:text-paper disabled:opacity-40"
             >
               Next →
             </button>

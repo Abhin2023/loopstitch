@@ -69,16 +69,16 @@ export default function AdminCoupons() {
               <div className="flex items-center gap-3 shrink-0">
                 <button
                   onClick={() => handleToggle(c)}
-                  className={`font-mono text-[10px] uppercase tracking-widest px-3 py-1.5 border transition-colors ${
+                    className={`font-mono text-[10px] uppercase tracking-widest px-3 py-2.5 min-h-11 border transition-colors ${
                     c.is_active ? 'border-acid text-acid' : 'border-panel-2 text-slate hover:text-paper'
                   }`}
                 >
                   {c.is_active ? 'Active' : 'Paused'}
                 </button>
-                <Link to={`/admin/coupons/${c.id}`} className="font-mono text-xs uppercase tracking-widest text-acid hover:underline">
+                <Link to={`/admin/coupons/${c.id}`} className="font-mono text-xs uppercase tracking-widest text-acid hover:underline px-2 py-2">
                   Edit
                 </Link>
-                <button onClick={() => handleDelete(c)} className="font-mono text-xs uppercase tracking-widest text-riot hover:underline">
+                <button onClick={() => handleDelete(c)} className="font-mono text-xs uppercase tracking-widest text-riot hover:underline px-2 py-2">
                   Delete
                 </button>
               </div>

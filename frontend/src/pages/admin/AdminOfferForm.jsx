@@ -99,7 +99,7 @@ export default function AdminOfferForm() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="font-display text-3xl uppercase text-paper mb-8">{isEdit ? 'Edit offer' : 'New offer'}</h1>
+      <h1 className="font-display text-2xl sm:text-3xl uppercase text-paper mb-8">{isEdit ? 'Edit offer' : 'New offer'}</h1>
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="border border-panel-2 p-6 space-y-5">
@@ -171,7 +171,7 @@ export default function AdminOfferForm() {
 
         {error && <div className="border border-riot bg-riot/10 text-riot text-sm font-mono px-4 py-3">{error}</div>}
 
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4">
           <button type="submit" disabled={saving} className="bg-riot text-ink font-mono text-sm uppercase tracking-widest px-8 py-3.5 hover:bg-acid transition-colors disabled:opacity-60">
             {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create offer'}
           </button>

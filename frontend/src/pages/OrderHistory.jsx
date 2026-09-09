@@ -75,9 +75,9 @@ export default function OrderHistory() {
                   <div>
                     <p className="font-mono text-[11px] uppercase tracking-widest text-slate mb-2">Items</p>
                     {order.items.map((item) => (
-                      <div key={item.id} className="flex justify-between text-xs font-mono text-paper/80 py-1">
-                        <span>{item.product_name} × {item.quantity} ({item.size})</span>
-                        <span>{formatINR(item.unit_price * item.quantity)}</span>
+                      <div key={item.id} className="flex justify-between gap-3 text-xs font-mono text-paper/80 py-1">
+                        <span className="min-w-0 break-words">{item.product_name} × {item.quantity} ({item.size})</span>
+                        <span className="shrink-0">{formatINR(item.unit_price * item.quantity)}</span>
                       </div>
                     ))}
                   </div>
@@ -88,7 +88,7 @@ export default function OrderHistory() {
                       <div className="flex justify-between text-xs font-mono text-acid"><span>Offer discount</span><span>−{formatINR(order.discount_amount)}</span></div>
                     )}
                     {(order.coupon_discount || 0) > 0 && (
-                      <div className="flex justify-between text-xs font-mono text-acid"><span>Coupon ({order.coupon_code})</span><span>−{formatINR(order.coupon_discount)}</span></div>
+                      <div className="flex justify-between gap-3 text-xs font-mono text-acid"><span className="min-w-0 break-words">Coupon ({order.coupon_code})</span><span className="shrink-0">−{formatINR(order.coupon_discount)}</span></div>
                     )}
                     <div className="flex justify-between text-xs font-mono text-slate"><span>Shipping</span><span>{formatINR(order.shipping_fee)}</span></div>
                     <div className="flex justify-between text-sm font-mono text-paper pt-1"><span>Total</span><span>{formatINR(order.total)}</span></div>

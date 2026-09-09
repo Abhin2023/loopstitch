@@ -75,7 +75,7 @@ export default function AdminCouponForm() {
 
   return (
     <div className="max-w-xl">
-      <h1 className="font-display text-3xl uppercase text-paper mb-8">{isEdit ? 'Edit coupon' : 'New coupon'}</h1>
+      <h1 className="font-display text-2xl sm:text-3xl uppercase text-paper mb-8">{isEdit ? 'Edit coupon' : 'New coupon'}</h1>
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="border border-panel-2 p-6 space-y-5">
@@ -109,7 +109,7 @@ export default function AdminCouponForm() {
 
         {error && <div className="border border-riot bg-riot/10 text-riot text-sm font-mono px-4 py-3">{error}</div>}
 
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4">
           <button type="submit" disabled={saving} className="bg-riot text-ink font-mono text-sm uppercase tracking-widest px-8 py-3.5 hover:bg-acid transition-colors disabled:opacity-60">
             {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create coupon'}
           </button>

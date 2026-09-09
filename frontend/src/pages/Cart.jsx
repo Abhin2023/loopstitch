@@ -58,7 +58,7 @@ export default function Cart() {
 
   return (
     <div className="max-w-5xl mx-auto px-5 sm:px-8 py-14 sm:py-20">
-      <h1 className="font-display text-4xl uppercase text-paper mb-10">Your cart</h1>
+      <h1 className="font-display text-3xl sm:text-4xl uppercase text-paper mb-8 sm:mb-10">Your cart</h1>
 
       <div className="grid md:grid-cols-3 gap-10">
         <div className="md:col-span-2 space-y-1">
@@ -76,26 +76,27 @@ export default function Cart() {
                   {item.image && <img src={mediaUrl(item.image)} alt={item.name} className="w-full h-full object-cover" />}
                 </div>
                 <div className="flex-1 flex flex-col justify-between">
-                  <div className="flex justify-between gap-3">
-                    <div>
-                      <Link to={`/product/${item.slug}`} className="font-body text-paper text-sm hover:text-acid">{item.name}</Link>
+                  <div className="flex justify-between gap-3 min-w-0">
+                    <div className="min-w-0">
+                      <Link to={`/product/${item.slug}`} className="font-body text-paper text-sm hover:text-acid break-words">{item.name}</Link>
                       <p className="font-mono text-xs text-slate mt-1">SIZE {item.size}</p>
                     </div>
                     <span className="font-mono text-sm text-paper shrink-0">{formatINR(item.price * item.quantity)}</span>
                   </div>
                   <div className="flex items-center justify-between mt-3">
                     <div className="flex items-center border border-panel-2">
-                      <button onClick={() => updateQuantity(item.key, item.quantity - 1)} className="w-8 h-8 font-mono text-paper hover:text-acid">−</button>
-                      <span className="w-8 text-center font-mono text-xs text-paper">{item.quantity}</span>
+                      <button onClick={() => updateQuantity(item.key, item.quantity - 1)} className="w-10 h-10 font-mono text-paper hover:text-acid" aria-label="Decrease quantity">−</button>
+                      <span className="w-9 text-center font-mono text-xs text-paper">{item.quantity}</span>
                       <button
                         onClick={() => updateQuantity(item.key, item.quantity + 1)}
                         disabled={item.quantity >= item.maxStock}
-                        className="w-8 h-8 font-mono text-paper hover:text-acid disabled:text-slate-dim disabled:cursor-not-allowed"
+                        className="w-10 h-10 font-mono text-paper hover:text-acid disabled:text-slate-dim disabled:cursor-not-allowed"
+                        aria-label="Increase quantity"
                       >
                         +
                       </button>
                     </div>
-                    <button onClick={() => removeItem(item.key)} className="font-mono text-[11px] uppercase tracking-widest text-slate hover:text-riot">
+                    <button onClick={() => removeItem(item.key)} className="font-mono text-[11px] uppercase tracking-widest text-slate hover:text-riot px-3 py-2">
                       Remove
                     </button>
                   </div>
@@ -142,7 +143,7 @@ export default function Cart() {
                 <button
                   onClick={handleApplyCoupon}
                   disabled={couponLoading || !couponCode.trim()}
-                  className="font-mono text-[10px] uppercase tracking-widest text-acid border border-acid px-3 py-2 hover:bg-acid hover:text-ink transition-colors disabled:opacity-40 shrink-0"
+                  className="font-mono text-[10px] uppercase tracking-widest text-acid border border-acid px-3 py-2.5 min-h-11 hover:bg-acid hover:text-ink transition-colors disabled:opacity-40 shrink-0"
                 >
                   {couponLoading ? '…' : 'Apply'}
                 </button>

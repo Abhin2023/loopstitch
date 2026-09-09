@@ -62,7 +62,7 @@ export default function AdminOrders() {
                   className="text-left flex-1 min-w-0"
                 >
                   <p className="font-mono text-sm text-paper">#{order.order_number}</p>
-                  <p className="font-mono text-[11px] text-slate mt-0.5">
+                  <p className="font-mono text-[11px] text-slate mt-0.5 truncate">
                     {order.customer_name} · {formatDate(order.created_at)} · {formatINR(order.total)}
                   </p>
                 </button>
@@ -91,9 +91,9 @@ export default function AdminOrders() {
                   <div>
                     <p className="font-mono text-[11px] uppercase tracking-widest text-slate mb-2">Items</p>
                     {order.items.map((item) => (
-                      <div key={item.id} className="flex justify-between text-xs font-mono text-paper/80 py-1">
-                        <span>{item.product_name} × {item.quantity} ({item.size})</span>
-                        <span>{formatINR(item.unit_price * item.quantity)}</span>
+                      <div key={item.id} className="flex justify-between gap-3 text-xs font-mono text-paper/80 py-1">
+                        <span className="min-w-0 break-words">{item.product_name} × {item.quantity} ({item.size})</span>
+                        <span className="shrink-0">{formatINR(item.unit_price * item.quantity)}</span>
                       </div>
                     ))}
                   </div>

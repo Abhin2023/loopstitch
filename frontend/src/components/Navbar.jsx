@@ -67,10 +67,10 @@ export default function Navbar() {
             })}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5 sm:gap-4 shrink-0">
             <button
               onClick={toggleTheme}
-              className="text-paper hover:text-acid transition-colors p-1"
+              className="hidden md:flex text-paper hover:text-acid transition-colors p-2 min-w-11 min-h-11 items-center justify-center"
               aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             >
               {theme === 'dark' ? (
@@ -94,10 +94,10 @@ export default function Navbar() {
 
             {/* Customer login / account */}
             {isAuthenticated ? (
-              <div className="relative" ref={dropdownRef}>
+              <div className="relative hidden md:block" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen((o) => !o)}
-                  className="font-mono text-xs uppercase tracking-widest text-paper/70 hover:text-paper transition-colors flex items-center gap-1.5"
+                  className="font-mono text-xs uppercase tracking-widest text-paper/70 hover:text-paper transition-colors flex items-center gap-1.5 p-2 min-w-11 min-h-11 justify-center"
                 >
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -132,7 +132,7 @@ export default function Navbar() {
             ) : (
               <button
                 onClick={() => setLoginOpen(true)}
-                className="font-mono text-xs uppercase tracking-widest text-paper/70 hover:text-paper transition-colors flex items-center gap-1.5"
+                className="hidden md:flex font-mono text-xs uppercase tracking-widest text-paper/70 hover:text-paper transition-colors items-center gap-1.5 p-2 min-w-11 min-h-11 justify-center"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -155,7 +155,7 @@ export default function Navbar() {
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     exit={{ scale: 0 }}
-                    className="absolute -top-2 -right-3 bg-riot text-ink text-[10px] font-mono font-bold w-4.5 h-4.5 min-w-[18px] min-h-[18px] rounded-full flex items-center justify-center"
+                    className="absolute -top-1 -right-1 bg-riot text-ink text-[10px] font-mono font-bold min-w-[18px] min-h-[18px] px-1 rounded-full flex items-center justify-center"
                   >
                     {count}
                   </motion.span>
@@ -164,12 +164,23 @@ export default function Navbar() {
             </Link>
 
             <button
-              className="md:hidden text-paper"
+              className="md:hidden text-paper p-2 min-w-11 min-h-11 flex items-center justify-center"
               onClick={() => setOpen((o) => !o)}
               aria-label="Toggle menu"
               aria-expanded={open}
             >
-              {open ? '✕' : '☰'}
+              {open ? (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              ) : (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <line x1="3" y1="6" x2="21" y2="6" />
+                  <line x1="3" y1="12" x2="21" y2="12" />
+                  <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+              )}
             </button>
           </div>
         </nav>

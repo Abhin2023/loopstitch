@@ -2,8 +2,8 @@ import { Link } from 'react-router-dom'
 
 export default function Footer() {
   return (
-    <footer className="border-t border-panel-2 bg-panel mt-24">
-      <div className="max-w-7xl mx-auto px-5 sm:px-8 py-14 grid grid-cols-1 sm:grid-cols-3 gap-10">
+    <footer className="border-t border-panel-2 bg-panel mt-12 sm:mt-24">
+      <div className="max-w-7xl mx-auto px-5 sm:px-8 py-10 sm:py-14 grid grid-cols-1 sm:grid-cols-3 gap-8 sm:gap-10">
         <div>
           <div className="font-display text-xl text-paper mb-3">LOOPSTITCH<span className="text-riot">.</span></div>
           <p className="text-sm text-slate leading-relaxed max-w-xs">
@@ -32,7 +32,7 @@ export default function Footer() {
           </ul>
         </div>
       </div>
-      <div className="border-t border-panel-2 py-5 text-center font-mono text-[11px] tracking-widest text-slate-dim">
+      <div className="border-t border-panel-2 px-5 py-5 text-center font-mono text-[10px] sm:text-[11px] tracking-[0.08em] sm:tracking-widest text-slate-dim leading-relaxed">
         © {new Date().getFullYear()} LOOPSTITCH CO. — PRINTED ON DEMAND, MADE FOR FANS.
       </div>
     </footer>

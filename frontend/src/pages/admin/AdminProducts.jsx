@@ -52,10 +52,10 @@ export default function AdminProducts() {
                 </p>
               </div>
               <div className="flex items-center gap-3 shrink-0">
-                <Link to={`/admin/products/${p.id}`} className="font-mono text-xs uppercase tracking-widest text-acid hover:underline">
+                <Link to={`/admin/products/${p.id}`} className="font-mono text-xs uppercase tracking-widest text-acid hover:underline px-2 py-2">
                   Edit
                 </Link>
-                <button onClick={() => handleDelete(p)} className="font-mono text-xs uppercase tracking-widest text-riot hover:underline">
+                <button onClick={() => handleDelete(p)} className="font-mono text-xs uppercase tracking-widest text-riot hover:underline px-2 py-2">
                   Delete
                 </button>
               </div>

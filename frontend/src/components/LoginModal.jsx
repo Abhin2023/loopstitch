@@ -129,18 +129,16 @@ export default function LoginModal({ open, onClose }) {
     clearTimer()
   }
 
-  if (!open) return null
-
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="absolute inset-0 bg-black/60" onClick={handleClose} />
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
-            className="relative bg-panel border border-panel-2 p-6 sm:p-8 w-full max-w-md space-y-5"
+            className="relative my-auto max-h-[90vh] overflow-y-auto bg-panel border border-panel-2 p-6 sm:p-8 w-full max-w-md space-y-5"
           >
             {success ? (
               <div className="text-center py-4">
@@ -236,7 +234,7 @@ export default function LoginModal({ open, onClose }) {
             )}
             <button
               onClick={handleClose}
-              className="absolute top-4 right-4 text-slate hover:text-paper text-lg"
+              className="absolute top-3 right-3 min-w-11 min-h-11 flex items-center justify-center text-slate hover:text-paper text-lg"
               aria-label="Close"
             >
               &#10005;

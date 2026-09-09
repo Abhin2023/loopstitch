@@ -309,7 +309,7 @@ export default function Checkout() {
 
   return (
     <div className="max-w-5xl mx-auto px-5 sm:px-8 py-14 sm:py-20">
-      <h1 className="font-display text-4xl uppercase text-paper mb-10">Checkout</h1>
+      <h1 className="font-display text-3xl sm:text-4xl uppercase text-paper mb-8 sm:mb-10">Checkout</h1>
 
       <div className="grid md:grid-cols-3 gap-10">
         <form onSubmit={handleCheckoutClick} className="md:col-span-2 space-y-5">
@@ -391,9 +391,9 @@ export default function Checkout() {
 
         <div className="h-fit border border-panel-2 p-6 space-y-3">
           {items.map((i) => (
-            <div key={i.key} className="flex justify-between text-xs font-mono text-paper/80">
-              <span>{i.name} × {i.quantity} ({i.size})</span>
-              <span>{formatINR(i.price * i.quantity)}</span>
+             <div key={i.key} className="flex justify-between gap-3 text-xs font-mono text-paper/80">
+               <span className="min-w-0 break-words">{i.name} × {i.quantity} ({i.size})</span>
+               <span className="shrink-0">{formatINR(i.price * i.quantity)}</span>
             </div>
           ))}
           <div className="border-t border-panel-2 pt-3 flex justify-between text-sm text-paper/90">
@@ -429,7 +429,7 @@ export default function Checkout() {
                   type="button"
                   onClick={handleApplyCoupon}
                   disabled={couponLoading || !couponCode.trim()}
-                  className="font-mono text-[10px] uppercase tracking-widest text-acid border border-acid px-3 py-2 hover:bg-acid hover:text-ink transition-colors disabled:opacity-40 shrink-0"
+                   className="font-mono text-[10px] uppercase tracking-widest text-acid border border-acid px-3 py-2.5 min-h-11 hover:bg-acid hover:text-ink transition-colors disabled:opacity-40 shrink-0"
                 >
                   {couponLoading ? '…' : 'Apply'}
                 </button>
@@ -515,7 +515,7 @@ function Field({ label, textarea, ...props }) {
       <span className="font-mono text-[11px] uppercase tracking-widest text-slate block mb-1.5">{label}</span>
       <Tag
         {...props}
-        rows={textarea ? 3 : undefined}
+        rows={textarea ? 4 : undefined}
         className="w-full bg-panel border border-panel-2 px-3.5 py-2.5 text-sm text-paper focus:border-acid outline-none transition-colors"
       />
     </label>
