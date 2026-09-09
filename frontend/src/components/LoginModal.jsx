@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useCustomerAuth } from '../context/CustomerAuthContext'
+
+const RESEND_COOLDOWN = 45
 
 export default function LoginModal({ open, onClose }) {
   const { sendOTP, verifyOTP } = useCustomerAuth()
@@ -10,6 +12,26 @@ export default function LoginModal({ open, onClose }) {
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [cooldown, setCooldown] = useState(0)
+  const timerRef = useRef(null)
+
+  useEffect(() => {
+    if (cooldown > 0) {
+      timerRef.current = setTimeout(() => setCooldown((c) => c - 1), 1000)
+      return () => clearTimeout(timerRef.current)
+    }
+  }, [cooldown])
+
+  useEffect(() => {
+    if (!open) {
+      setCooldown(0)
+      clearTimeout(timerRef.current)
+    }
+  }, [open])
+
+  const startCooldown = useCallback(() => {
+    setCooldown(RESEND_COOLDOWN)
+  }, [])
 
   const handleSendOTP = async (e) => {
     e.preventDefault()
@@ -22,8 +44,22 @@ export default function LoginModal({ open, onClose }) {
     try {
       await sendOTP(phone)
       setStep('otp')
+      startCooldown()
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to send OTP. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleResendOTP = async () => {
+    setError(null)
+    setLoading(true)
+    try {
+      await sendOTP(phone)
+      startCooldown()
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to resend OTP. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -58,6 +94,8 @@ export default function LoginModal({ open, onClose }) {
     setError(null)
     setSuccess(false)
     setLoading(false)
+    setCooldown(0)
+    clearTimeout(timerRef.current)
   }
 
   const handleClose = () => {
@@ -142,9 +180,28 @@ export default function LoginModal({ open, onClose }) {
                   >
                     {loading ? 'Verifying…' : 'Verify'}
                   </button>
+
+                  {/* Resend OTP / Countdown */}
+                  <div className="text-center">
+                    {cooldown > 0 ? (
+                      <p className="font-mono text-[11px] text-slate">
+                        Resend code in <span className="text-paper">{cooldown}s</span>
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleResendOTP}
+                        disabled={loading}
+                        className="font-mono text-[11px] uppercase tracking-widest text-acid hover:underline disabled:opacity-50"
+                      >
+                        {loading ? 'Sending…' : 'Resend OTP'}
+                      </button>
+                    )}
+                  </div>
+
                   <button
                     type="button"
-                    onClick={() => { setStep('phone'); setOtp(''); setError(null) }}
+                    onClick={() => { setStep('phone'); setOtp(''); setError(null); setCooldown(0); clearTimeout(timerRef.current) }}
                     className="font-mono text-[11px] uppercase tracking-widest text-slate hover:text-paper w-full text-center"
                   >
                     ← Change phone number

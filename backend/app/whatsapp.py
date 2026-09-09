@@ -34,6 +34,7 @@ def send_template_message(
     template_name: str,
     language_code: str,
     body_params: List[str],
+    is_authentication: bool = False,
 ) -> Dict[str, Any]:
     """
     Send a pre-approved WhatsApp template message.
@@ -43,6 +44,7 @@ def send_template_message(
         template_name: Name of the approved Meta template (e.g. "order_confirm")
         language_code: BCP-47 language code (e.g. "en", "en_US")
         body_params: Ordered list of template body variables
+        is_authentication: If True, sends as Authentication template (for OTP)
 
     Returns:
         Dict with "message_id" (wamid.xxx) on success.
@@ -55,9 +57,33 @@ def send_template_message(
 
     url = f"{BASE_URL}/{PHONE_NUMBER_ID}/messages"
 
-    parameters: List[Dict[str, str]] = [
-        {"type": "text", "text": param} for param in body_params
-    ]
+    if is_authentication:
+        components: List[Dict[str, Any]] = [
+            {
+                "type": "body",
+                "parameters": [
+                    {"type": "text", "text": body_params[0] if body_params else ""}
+                ],
+            },
+            {
+                "type": "button",
+                "sub_type": "url",
+                "index": 0,
+                "parameters": [
+                    {"type": "text", "text": body_params[0] if body_params else ""}
+                ],
+            },
+        ]
+    else:
+        parameters: List[Dict[str, str]] = [
+            {"type": "text", "text": param} for param in body_params
+        ]
+        components = [
+            {
+                "type": "body",
+                "parameters": parameters,
+            }
+        ]
 
     payload = {
         "messaging_product": "whatsapp",
@@ -70,12 +96,7 @@ def send_template_message(
                 "policy": "deterministic",
                 "code": language_code,
             },
-            "components": [
-                {
-                    "type": "body",
-                    "parameters": parameters,
-                }
-            ],
+            "components": components,
         },
     }
 
@@ -125,12 +146,13 @@ def send_otp_message(phone: str, otp_code: str) -> Dict[str, Any]:
     """
     Send an OTP verification code via WhatsApp template.
 
-    Template: otp_verification
-    Variables: {{1}} = 6-digit OTP code
+    Template: otp_verification (Authentication category)
+    Variables: code = 6-digit OTP code
     """
     return send_template_message(
         phone=phone,
         template_name="otp_verification",
         language_code="en",
         body_params=[otp_code],
+        is_authentication=True,
     )
