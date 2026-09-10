@@ -95,13 +95,33 @@ def ensure_product_color_schema() -> None:
     with engine.begin() as conn:
         insp = sa.inspect(conn)
         if "product_sizes" in insp.get_table_names():
-            constraints = {c["name"] for c in insp.get_unique_constraints("product_sizes")}
-            if "uq_product_size" in constraints:
+            # Remove the old product-wide size uniqueness rule. A size can now
+            # exist once per color, not once per product.
+            for constraint in insp.get_unique_constraints("product_sizes"):
+                columns = constraint.get("column_names", [])
+                if columns == ["product_id", "size"] or set(columns) == {"product_id", "size"}:
+                    name = constraint.get("name")
+                    if not name:
+                        continue
+                    try:
+                        conn.execute(sa.text(f"ALTER TABLE product_sizes DROP INDEX `{name}`"))
+                        print(f"  + removed legacy product size constraint '{name}'")
+                    except Exception as exc:
+                        print(f"  ! could not remove legacy constraint '{name}': {exc}")
+
+            new_constraint = "uq_product_size_color"
+            existing = {
+                c.get("name") for c in insp.get_unique_constraints("product_sizes")
+            }
+            if new_constraint not in existing:
                 try:
-                    conn.execute(sa.text("ALTER TABLE product_sizes DROP INDEX uq_product_size"))
-                    print("  + replaced legacy product size constraint")
-                except Exception:
-                    pass
+                    conn.execute(sa.text(
+                        "ALTER TABLE product_sizes ADD UNIQUE INDEX "
+                        "uq_product_size_color (product_id, size, color_id)"
+                    ))
+                    print("  + added color-aware product size constraint")
+                except Exception as exc:
+                    print(f"  ! could not add color-aware size constraint: {exc}")
 
     db = SessionLocal()
     try:
