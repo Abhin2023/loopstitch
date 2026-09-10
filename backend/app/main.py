@@ -368,12 +368,18 @@ def update_product(product_id: int, payload: schemas.ProductUpdate, db: Session 
         for position, color_data in enumerate(colors):
             color = next((c for c in product.colors if c.id == color_data.get("id")), None)
             if color is None:
-                color = models.ProductColor(product_id=product.id)
+                color = models.ProductColor(
+                    product_id=product.id,
+                    name=color_data["name"].strip(),
+                    hex_code=color_data.get("hex_code") or "#000000",
+                    position=color_data.get("position", position),
+                )
                 db.add(color)
                 db.flush()
-            color.name = color_data["name"].strip()
-            color.hex_code = color_data.get("hex_code") or "#000000"
-            color.position = color_data.get("position", position)
+            else:
+                color.name = color_data["name"].strip()
+                color.hex_code = color_data.get("hex_code") or "#000000"
+                color.position = color_data.get("position", position)
             existing = {s.size: s for s in color.sizes}
             incoming_sizes = {s["size"] for s in color_data.get("sizes", [])}
             for size, row in existing.items():

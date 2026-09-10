@@ -80,7 +80,10 @@ export default function AdminProductForm() {
       if (!isEdit) {
         setProductId(res.data.id)
         navigate(`/admin/products/${res.data.id}`, { replace: true })
-      } else navigate('/admin/products')
+      } else {
+        setProductId(Number(id))
+        setColors(res.data.colors || colors)
+      }
     } catch (err) {
       setError(err.response?.data?.detail || 'Failed to save product.')
     } finally { setSaving(false) }
@@ -94,18 +97,20 @@ export default function AdminProductForm() {
     try {
       const fd = new FormData()
       files.forEach((file) => fd.append('files', file))
-      const res = await client.post(`/api/admin/products/${productId}/images`, fd, {
+      await client.post(`/api/admin/products/${productId}/images`, fd, {
         params: { color_id: colorId }, headers: { 'Content-Type': 'multipart/form-data' },
       })
-      setColors(res.data.colors || colors)
+      const refreshed = await client.get(`/api/admin/products/${productId}`)
+      setColors(refreshed.data.colors || colors)
     } catch { setError('Image upload failed. Use JPG, PNG, WEBP, or GIF.') }
     finally { setUploading(null); e.target.value = '' }
   }
 
   const handleImageDelete = async (colorId, imageId) => {
     try {
-      const res = await client.delete(`/api/admin/products/${productId}/images/${imageId}`)
-      setColors(res.data.colors || colors)
+      await client.delete(`/api/admin/products/${productId}/images/${imageId}`)
+      const refreshed = await client.get(`/api/admin/products/${productId}`)
+      setColors(refreshed.data.colors || colors)
     } catch { alert('Failed to delete image.') }
   }
 
