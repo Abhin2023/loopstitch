@@ -95,6 +95,19 @@ def ensure_product_color_schema() -> None:
     with engine.begin() as conn:
         insp = sa.inspect(conn)
         if "product_sizes" in insp.get_table_names():
+            # Keep the foreign key on product_id indexed after removing the
+            # legacy composite index that InnoDB currently uses for it.
+            indexes = {index.get("name") for index in insp.get_indexes("product_sizes")}
+            if "ix_product_sizes_product_id" not in indexes:
+                try:
+                    conn.execute(sa.text(
+                        "ALTER TABLE product_sizes ADD INDEX "
+                        "ix_product_sizes_product_id (product_id)"
+                    ))
+                    print("  + added product_id foreign-key index")
+                except Exception as exc:
+                    print(f"  ! could not add product_id index: {exc}")
+
             # Remove the old product-wide size uniqueness rule. A size can now
             # exist once per color, not once per product.
             for constraint in insp.get_unique_constraints("product_sizes"):
