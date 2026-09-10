@@ -59,7 +59,7 @@ def generate_invoice_pdf(order) -> bytes:
     data = [["ITEM", "SIZE", "QTY", "UNIT PRICE", "AMOUNT"]]
     for item in order.items:
         data.append([
-            item.product_name,
+            f"{item.product_name}{f' ({item.color_name})' if item.color_name else ''}",
             item.size,
             str(item.quantity),
             f"Rs. {item.unit_price:,.2f}",

@@ -79,7 +79,7 @@ export default function Cart() {
                   <div className="flex justify-between gap-3 min-w-0">
                     <div className="min-w-0">
                       <Link to={`/product/${item.slug}`} className="font-body text-paper text-sm hover:text-acid break-words">{item.name}</Link>
-                      <p className="font-mono text-xs text-slate mt-1">SIZE {item.size}</p>
+                       <p className="font-mono text-xs text-slate mt-1 flex items-center gap-2">{item.colorHex && <span className="w-3 h-3 rounded-full border border-paper/30" style={{ backgroundColor: item.colorHex }} />} {item.color && `${item.color} / `}SIZE {item.size}</p>
                     </div>
                     <span className="font-mono text-sm text-paper shrink-0">{formatINR(item.price * item.quantity)}</span>
                   </div>

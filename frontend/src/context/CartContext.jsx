@@ -17,9 +17,10 @@ export function CartProvider({ children }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
   }, [items])
 
-  const addItem = (product, size, quantity, maxStock) => {
+  const addItem = (product, color, size, quantity, maxStock) => {
     setItems((prev) => {
-      const key = `${product.id}-${size}`
+      const colorId = color?.id || ''
+      const key = `${product.id}-${colorId}-${size}`
       const existing = prev.find((i) => i.key === key)
       if (existing) {
         const nextQty = Math.min(existing.quantity + quantity, maxStock)
@@ -29,12 +30,15 @@ export function CartProvider({ children }) {
         ...prev,
         {
           key,
-          productId: product.id,
+           productId: product.id,
           slug: product.slug,
           name: product.name,
           price: product.price,
-          image: product.images?.[0]?.url || '',
-          size,
+           colorId: color?.id || null,
+           color: color?.name || product.colorway || '',
+           colorHex: color?.hex_code || '',
+           image: color?.images?.[0]?.url || product.images?.[0]?.url || '',
+           size,
           quantity: Math.min(quantity, maxStock),
           maxStock,
         },

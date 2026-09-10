@@ -67,6 +67,15 @@ def unique_slug(db: Session, base: str, exclude_id: Optional[int] = None) -> str
         slug = f"{base}-{counter}"
 
 
+def product_load_options():
+    return (
+        joinedload(models.Product.images),
+        joinedload(models.Product.sizes),
+        joinedload(models.Product.colors).joinedload(models.ProductColor.images),
+        joinedload(models.Product.colors).joinedload(models.ProductColor.sizes),
+    )
+
+
 # ============================================================
 # HEALTH
 # ============================================================
@@ -260,9 +269,7 @@ def list_products(
     featured: Optional[bool] = None,
     db: Session = Depends(get_db),
 ):
-    q = db.query(models.Product).options(
-        joinedload(models.Product.images), joinedload(models.Product.sizes)
-    ).filter(models.Product.is_active == True)  # noqa: E712
+    q = db.query(models.Product).options(*product_load_options()).filter(models.Product.is_active == True)  # noqa: E712
     if category:
         q = q.filter(models.Product.category == category)
     if featured is not None:
@@ -273,9 +280,7 @@ def list_products(
 
 @app.get("/api/products/{slug}", response_model=schemas.ProductOut)
 def get_product(slug: str, db: Session = Depends(get_db)):
-    product = db.query(models.Product).options(
-        joinedload(models.Product.images), joinedload(models.Product.sizes)
-    ).filter(models.Product.slug == slug, models.Product.is_active == True).first()  # noqa: E712
+    product = db.query(models.Product).options(*product_load_options()).filter(models.Product.slug == slug, models.Product.is_active == True).first()  # noqa: E712
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     return product
@@ -286,17 +291,13 @@ def get_product(slug: str, db: Session = Depends(get_db)):
 # ============================================================
 @app.get("/api/admin/products", response_model=List[schemas.ProductOut])
 def admin_list_products(db: Session = Depends(get_db), current: models.Admin = Depends(auth.get_current_admin)):
-    products = db.query(models.Product).options(
-        joinedload(models.Product.images), joinedload(models.Product.sizes)
-    ).order_by(models.Product.created_at.desc()).all()
+    products = db.query(models.Product).options(*product_load_options()).order_by(models.Product.created_at.desc()).all()
     return products
 
 
 @app.get("/api/admin/products/{product_id}", response_model=schemas.ProductOut)
 def admin_get_product(product_id: int, db: Session = Depends(get_db), current: models.Admin = Depends(auth.get_current_admin)):
-    product = db.query(models.Product).options(
-        joinedload(models.Product.images), joinedload(models.Product.sizes)
-    ).filter(models.Product.id == product_id).first()
+    product = db.query(models.Product).options(*product_load_options()).filter(models.Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     return product
@@ -309,11 +310,23 @@ def create_product(payload: schemas.ProductCreate, db: Session = Depends(get_db)
         name=payload.name, slug=slug, description=payload.description, price=payload.price,
         compare_at_price=payload.compare_at_price, category=payload.category, colorway=payload.colorway,
         is_active=payload.is_active, is_featured=payload.is_featured,
+        meta_title=payload.meta_title, meta_description=payload.meta_description,
     )
     db.add(product)
     db.flush()
-    for s in payload.sizes:
-        db.add(models.ProductSize(product_id=product.id, size=s.size, stock=s.stock))
+    if payload.colors:
+        for position, color_data in enumerate(payload.colors):
+            color = models.ProductColor(
+                product_id=product.id, name=color_data.name.strip(),
+                hex_code=color_data.hex_code, position=color_data.position or position,
+            )
+            db.add(color)
+            db.flush()
+            for s in color_data.sizes:
+                db.add(models.ProductSize(product_id=product.id, color_id=color.id, size=s.size, stock=s.stock))
+    else:
+        for s in payload.sizes:
+            db.add(models.ProductSize(product_id=product.id, size=s.size, stock=s.stock))
     db.commit()
     db.refresh(product)
     return product
@@ -327,6 +340,7 @@ def update_product(product_id: int, payload: schemas.ProductUpdate, db: Session 
 
     data = payload.model_dump(exclude_unset=True)
     sizes = data.pop("sizes", None)
+    colors = data.pop("colors", None)
 
     if "name" in data and data["name"] != product.name:
         product.slug = unique_slug(db, slugify(data["name"]), exclude_id=product.id)
@@ -345,6 +359,31 @@ def update_product(product_id: int, payload: schemas.ProductUpdate, db: Session 
                 existing_sizes[s["size"]].stock = s["stock"]
             else:
                 db.add(models.ProductSize(product_id=product.id, size=s["size"], stock=s["stock"]))
+
+    if colors is not None:
+        incoming_ids = {c.get("id") for c in colors if c.get("id")}
+        for color in list(product.colors):
+            if color.id not in incoming_ids:
+                db.delete(color)
+        for position, color_data in enumerate(colors):
+            color = next((c for c in product.colors if c.id == color_data.get("id")), None)
+            if color is None:
+                color = models.ProductColor(product_id=product.id)
+                db.add(color)
+                db.flush()
+            color.name = color_data["name"].strip()
+            color.hex_code = color_data.get("hex_code") or "#000000"
+            color.position = color_data.get("position", position)
+            existing = {s.size: s for s in color.sizes}
+            incoming_sizes = {s["size"] for s in color_data.get("sizes", [])}
+            for size, row in existing.items():
+                if size not in incoming_sizes:
+                    db.delete(row)
+            for size_data in color_data.get("sizes", []):
+                if size_data["size"] in existing:
+                    existing[size_data["size"]].stock = size_data["stock"]
+                else:
+                    db.add(models.ProductSize(product_id=product.id, color_id=color.id, size=size_data["size"], stock=size_data["stock"]))
 
     product.updated_at = _utcnow()
     db.commit()
@@ -375,6 +414,7 @@ ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 @app.post("/api/admin/products/{product_id}/images", response_model=schemas.ProductOut)
 async def upload_product_images(
     product_id: int,
+    color_id: Optional[int] = None,
     files: List[UploadFile] = File(...),
     db: Session = Depends(get_db),
     current: models.Admin = Depends(auth.get_current_admin),
@@ -382,6 +422,10 @@ async def upload_product_images(
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+    if color_id is not None and not db.query(models.ProductColor).filter(
+        models.ProductColor.id == color_id, models.ProductColor.product_id == product_id
+    ).first():
+        raise HTTPException(status_code=404, detail="Color variant not found")
 
     for file in files:
         if file.content_type not in ALLOWED_IMAGE_TYPES:
@@ -399,10 +443,12 @@ async def upload_product_images(
             f.write(contents)
 
         position = db.query(models.ProductImage).filter(
-            models.ProductImage.product_id == product_id
+            models.ProductImage.product_id == product_id,
+            models.ProductImage.color_id == color_id,
         ).count()
         db.add(models.ProductImage(
-            product_id=product_id, url=f"/uploads/products/{fname}", position=position
+            product_id=product_id, color_id=color_id,
+            url=f"/uploads/products/{fname}", position=position
         ))
 
     db.commit()
@@ -495,15 +541,31 @@ def create_order(
         if not product:
             raise HTTPException(status_code=404, detail=f"Product {line.product_id} not found")
 
-        size_row = db.query(models.ProductSize).filter(
-            models.ProductSize.product_id == product.id, models.ProductSize.size == line.size
-        ).with_for_update().first()
+        color = None
+        if line.color_id is not None:
+            color = db.query(models.ProductColor).filter(
+                models.ProductColor.id == line.color_id, models.ProductColor.product_id == product.id
+            ).first()
+            if not color:
+                raise HTTPException(status_code=400, detail=f"Color variant not available for {product.name}")
+        elif product.colors:
+            # Existing carts created before color variants use the first/default color.
+            color = sorted(product.colors, key=lambda item: item.position)[0]
+        size_query = db.query(models.ProductSize).filter(
+            models.ProductSize.product_id == product.id,
+            models.ProductSize.size == line.size,
+        )
+        if color:
+            size_query = size_query.filter(models.ProductSize.color_id == color.id)
+        else:
+            size_query = size_query.filter(models.ProductSize.color_id.is_(None))
+        size_row = size_query.with_for_update().first()
         if not size_row:
             raise HTTPException(status_code=400, detail=f"Size {line.size} not available for {product.name}")
         if size_row.stock < line.quantity:
             raise HTTPException(
                 status_code=409,
-                detail=f"Only {size_row.stock} left for {product.name} (size {line.size}). Please lower the quantity."
+                detail=f"Only {size_row.stock} left for {product.name} ({color.name + ' / ' if color else ''}size {line.size}). Please lower the quantity."
             )
 
         size_row.stock -= line.quantity
@@ -513,10 +575,13 @@ def create_order(
 
         item_rows.append(models.OrderItem(
             order_id=order.id, product_id=product.id, product_name=product.name,
+            color_id=color.id if color else None,
+            color_name=color.name if color else product.colorway or "",
             size=line.size, quantity=line.quantity, unit_price=unit_price,
         ))
         cart_ctx.append({
             "product_id": product.id, "size": line.size, "quantity": line.quantity,
+            "line_key": (product.id, line.color_id, line.size),
             "unit_price": unit_price, "product": product,
         })
 
@@ -527,7 +592,7 @@ def create_order(
         order.offer_id = best["offer_id"]
         order.offer_label = best["label"]
         for row in item_rows:
-            row.line_discount = round(best["line_discounts"].get((row.product_id, row.size), 0.0), 2)
+            row.line_discount = round(best["line_discounts"].get((row.product_id, row.color_id, row.size), best["line_discounts"].get((row.product_id, row.size), 0.0)), 2)
 
     # ---- Coupon (percentage off the BOGO-discounted merchandise value) ----
     subtotal_after_bogo = round(subtotal - (order.discount_amount or 0.0), 2)
@@ -583,6 +648,7 @@ def cart_quote(payload: schemas.QuoteRequest, db: Session = Depends(get_db)):
         subtotal += product.price * line.quantity
         cart_ctx.append({
             "product_id": product.id, "size": line.size, "quantity": line.quantity,
+            "line_key": (product.id, line.color_id, line.size),
             "unit_price": product.price, "product": product,
         })
 
@@ -674,6 +740,7 @@ def customer_order_history(
 
 # ============================================================
 # ADMIN ORDER ROUTES
+@app.get("/api/admin/orders", response_model=list[schemas.OrderOut])
 def admin_list_orders(db: Session = Depends(get_db), current: models.Admin = Depends(auth.get_current_admin)):
     orders = db.query(models.Order).options(joinedload(models.Order.items)).order_by(models.Order.created_at.desc()).all()
     return orders
@@ -834,7 +901,7 @@ def razorpay_verify_payment(payload: schemas.RazorpayVerifyRequest, db: Session 
 def _build_items_summary(items: list) -> str:
     """Build a human-readable items summary like '2 items — Ronin Wave Tee × 1, Elite Soldier Tee × 1'."""
     total_qty = sum(i.quantity for i in items)
-    parts = [f"{i.product_name} × {i.quantity}" for i in items]
+    parts = [f"{i.product_name}{f' ({i.color_name})' if i.color_name else ''} × {i.quantity}" for i in items]
     summary = ", ".join(parts[:3])
     if len(items) > 3:
         summary += f" +{len(items) - 3} more"

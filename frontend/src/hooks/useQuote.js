@@ -18,7 +18,7 @@ export default function useQuote(items, couponCode = '') {
     timer.current = setTimeout(async () => {
       try {
         const res = await client.post('/api/cart/quote', {
-          items: items.map((i) => ({ product_id: i.productId, size: i.size, quantity: i.quantity })),
+          items: items.map((i) => ({ product_id: i.productId, color_id: i.colorId || undefined, size: i.size, quantity: i.quantity })),
           coupon_code: couponCode || undefined,
         })
         setQuote(res.data)

@@ -10,6 +10,11 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    document.title = 'Loopstitch Co. | Wear the panel.'
+    return () => { document.title = 'Loopstitch Co.' }
+  }, [])
+
+  useEffect(() => {
     client
       .get('/api/products', { params: { featured: true } })
       .then((res) => setProducts(res.data))

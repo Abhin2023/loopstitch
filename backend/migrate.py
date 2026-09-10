@@ -61,6 +61,18 @@ def ensure_columns() -> None:
         ],
         "order_items": [
             models.OrderItem.line_discount,
+            models.OrderItem.color_id,
+            models.OrderItem.color_name,
+        ],
+        "products": [
+            models.Product.meta_title,
+            models.Product.meta_description,
+        ],
+        "product_images": [
+            models.ProductImage.color_id,
+        ],
+        "product_sizes": [
+            models.ProductSize.color_id,
         ],
     }
     with engine.begin() as conn:
@@ -72,6 +84,43 @@ def ensure_columns() -> None:
             for column in columns:
                 if column.name not in existing:
                     add_column(conn, table, column)
+
+
+def ensure_product_color_schema() -> None:
+    """Create color variants and attach legacy product data to a default color."""
+    models.ProductColor.__table__.create(bind=engine, checkfirst=True)
+    with engine.begin() as conn:
+        insp = sa.inspect(conn)
+        if "product_sizes" in insp.get_table_names():
+            constraints = {c["name"] for c in insp.get_unique_constraints("product_sizes")}
+            if "uq_product_size" in constraints:
+                try:
+                    conn.execute(sa.text("ALTER TABLE product_sizes DROP INDEX uq_product_size"))
+                    print("  + replaced legacy product size constraint")
+                except Exception:
+                    pass
+
+    db = SessionLocal()
+    try:
+        products = db.query(models.Product).all()
+        for product in products:
+            if product.colors:
+                continue
+            color = models.ProductColor(
+                product_id=product.id,
+                name=product.colorway.strip() or "Default",
+                hex_code="#000000",
+                position=0,
+            )
+            db.add(color)
+            db.flush()
+            for image in product.images:
+                image.color_id = color.id
+            for size in product.sizes:
+                size.color_id = color.id
+        db.commit()
+    finally:
+        db.close()
 
 
 def ensure_customer_tables() -> None:
@@ -127,7 +176,9 @@ def main() -> None:
     ensure_notifications_table()
     print("4/5 adding missing columns...")
     ensure_columns()
-    print("5/5 seeding default settings...")
+    print("5/6 adding color variants...")
+    ensure_product_color_schema()
+    print("6/6 seeding default settings...")
     seed_settings()
     print("Done.")
 

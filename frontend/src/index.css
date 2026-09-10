@@ -78,6 +78,31 @@ body {
   font-family: var(--font-mono);
 }
 
+.field-label {
+  display: block;
+  margin-bottom: 0.375rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-slate);
+}
+
+.field-input {
+  width: 100%;
+  background: var(--color-panel);
+  border: 1px solid var(--color-panel-2);
+  padding: 0.625rem 0.875rem;
+  color: var(--color-paper);
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.field-input:focus {
+  border-color: var(--color-acid);
+}
+
 /* Halftone / screentone texture overlay, used behind hero + section dividers */
 .screentone {
   background-image: radial-gradient(var(--color-paper) 1px, transparent 1.4px);

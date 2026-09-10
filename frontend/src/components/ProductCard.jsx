@@ -59,7 +59,12 @@ export default function ProductCard({ product, index = 0 }) {
         <div className="mt-3 flex items-start justify-between gap-3">
           <div>
             <h3 className="font-body font-medium text-paper text-sm sm:text-base leading-snug">{product.name}</h3>
-            {product.colorway && <p className="font-mono text-[11px] text-slate mt-0.5 uppercase">{product.colorway}</p>}
+            {product.colors?.length > 1 ? (
+              <div className="flex items-center gap-1.5 mt-1" aria-label={`${product.colors.length} colors available`}>
+                {product.colors.slice(0, 5).map((color) => <span key={color.id} className="w-3 h-3 rounded-full border border-paper/30" style={{ backgroundColor: color.hex_code || '#000000' }} title={color.name} />)}
+                <span className="font-mono text-[10px] text-slate ml-1">{product.colors.length} colors</span>
+              </div>
+            ) : product.colorway && <p className="font-mono text-[11px] text-slate mt-0.5 uppercase">{product.colorway}</p>}
           </div>
           <div className="text-right shrink-0 font-mono">
             <span className="text-paper text-sm">{formatINR(product.price)}</span>

@@ -38,6 +38,26 @@ class ProductSizeOut(ProductSizeIn):
         from_attributes = True
 
 
+class ProductColorIn(BaseModel):
+    id: Optional[int] = None
+    name: str
+    hex_code: str = "#000000"
+    position: int = 0
+    sizes: List[ProductSizeIn] = Field(default_factory=list)
+
+
+class ProductColorOut(BaseModel):
+    id: int
+    name: str
+    hex_code: str
+    position: int
+    images: List[ProductImageOut] = []
+    sizes: List[ProductSizeOut] = []
+
+    class Config:
+        from_attributes = True
+
+
 # ---------- Products ----------
 class ProductBase(BaseModel):
     name: str
@@ -48,10 +68,13 @@ class ProductBase(BaseModel):
     colorway: str = ""
     is_active: bool = True
     is_featured: bool = False
+    meta_title: Optional[str] = None
+    meta_description: Optional[str] = None
 
 
 class ProductCreate(ProductBase):
     sizes: List[ProductSizeIn] = Field(default_factory=list)
+    colors: List[ProductColorIn] = Field(default_factory=list)
 
 
 class ProductUpdate(BaseModel):
@@ -63,7 +86,10 @@ class ProductUpdate(BaseModel):
     colorway: Optional[str] = None
     is_active: Optional[bool] = None
     is_featured: Optional[bool] = None
+    meta_title: Optional[str] = None
+    meta_description: Optional[str] = None
     sizes: Optional[List[ProductSizeIn]] = None
+    colors: Optional[List[ProductColorIn]] = None
 
 
 class ProductOut(ProductBase):
@@ -72,6 +98,7 @@ class ProductOut(ProductBase):
     created_at: datetime
     images: List[ProductImageOut] = []
     sizes: List[ProductSizeOut] = []
+    colors: List[ProductColorOut] = []
     total_stock: int
 
     class Config:
@@ -82,6 +109,7 @@ class ProductOut(ProductBase):
 class OrderItemIn(BaseModel):
     product_id: int
     size: str
+    color_id: Optional[int] = None
     quantity: int = Field(gt=0)
 
 
@@ -101,6 +129,8 @@ class OrderCreate(BaseModel):
 class OrderItemOut(BaseModel):
     id: int
     product_name: str
+    color_id: Optional[int] = None
+    color_name: str = ""
     size: str
     quantity: int
     unit_price: float

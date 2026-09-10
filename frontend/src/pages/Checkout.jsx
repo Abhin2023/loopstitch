@@ -247,7 +247,7 @@ export default function Checkout() {
         ...form,
         payment_method: method,
         coupon_code: couponApplied?.code || couponCode.trim().toUpperCase() || undefined,
-        items: items.map((i) => ({ product_id: i.productId, size: i.size, quantity: i.quantity })),
+         items: items.map((i) => ({ product_id: i.productId, color_id: i.colorId || undefined, size: i.size, quantity: i.quantity })),
       }
       const res = await client.post('/api/orders', payload)
       const orderData = res.data.order

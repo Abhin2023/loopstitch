@@ -105,7 +105,7 @@ def compute_best_offer(
            product must be the models.Product instance.
 
     Returns the best single offer application:
-      {offer_id, label, discount, line_discounts: {(product_id, size): amount}}
+               {offer_id, label, discount, line_discounts: {line_key: amount}}
     or None when nothing applies.
     """
     best: Optional[Dict] = None
@@ -130,7 +130,7 @@ def compute_best_offer(
 
             # cheapest units become the free ones (standard retail BOGO practice)
             units = sorted(
-                ((l["unit_price"], (l["product_id"], l["size"])) for l in eligible for _ in range(l["quantity"])),
+                ((l["unit_price"], l.get("line_key", (l["product_id"], l["size"]))) for l in eligible for _ in range(l["quantity"])),
                 key=lambda u: u[0],
             )
             cheapest = units[:free_units]

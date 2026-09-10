@@ -16,6 +16,7 @@ export default function ProductDetail() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [activeImage, setActiveImage] = useState(0)
+  const [selectedColorId, setSelectedColorId] = useState(null)
   const [selectedSize, setSelectedSize] = useState(null)
   const [quantity, setQuantity] = useState(1)
   const [justAdded, setJustAdded] = useState(false)
@@ -29,12 +30,44 @@ export default function ProductDetail() {
       .then((res) => {
         setProduct(res.data)
         setActiveImage(0)
+        setSelectedColorId(res.data.colors?.[0]?.id || null)
         setSelectedSize(null)
         setQuantity(1)
       })
       .catch(() => setError('Product not found'))
       .finally(() => setLoading(false))
   }, [slug])
+
+  useEffect(() => {
+    if (!product) return undefined
+    const title = product.meta_title || `${product.name} | Loopstitch Co.`
+    const description = product.meta_description || product.description || `Shop ${product.name} from Loopstitch Co.`
+    const seoImage = (product.colors?.[0]?.images || product.images || [])[0]?.url
+    document.title = title
+    const tags = [
+      ['name', 'description', description],
+      ['property', 'og:title', title],
+      ['property', 'og:description', description],
+      ['property', 'og:type', 'product'],
+      ...(seoImage ? [['property', 'og:image', mediaUrl(seoImage)]] : []),
+    ]
+    const elements = tags.map(([attribute, key, content]) => {
+      let el = document.head.querySelector(`meta[${attribute}="${key}"]`)
+      if (!el) { el = document.createElement('meta'); el.setAttribute(attribute, key); document.head.appendChild(el) }
+      el.setAttribute('content', content)
+      return el
+    })
+    const schema = document.createElement('script')
+    schema.type = 'application/ld+json'
+    schema.dataset.loopstitchProduct = 'true'
+    schema.textContent = JSON.stringify({
+      '@context': 'https://schema.org', '@type': 'Product', name: product.name,
+      description, image: (product.colors?.[0]?.images || product.images || []).map((image) => mediaUrl(image.url)),
+      sku: product.slug, offers: { '@type': 'Offer', priceCurrency: 'INR', price: product.price, availability: product.total_stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock', url: window.location.href },
+    })
+    document.head.appendChild(schema)
+    return () => { elements.forEach((el) => el.remove()); schema.remove() }
+  }, [product])
 
   useEffect(() => {
     return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current) }
@@ -50,15 +83,17 @@ export default function ProductDetail() {
     )
   }
 
-  const images = product.images || []
-  const sizes = product.sizes || []
+  const colors = product.colors?.length ? product.colors : [{ id: null, name: product.colorway || 'Default', hex_code: '#000000', images: product.images || [], sizes: product.sizes || [] }]
+  const selectedColor = colors.find((color) => color.id === selectedColorId) || colors[0]
+  const images = selectedColor.images || []
+  const sizes = selectedColor.sizes || []
   const sizeRow = sizes.find((s) => s.size === selectedSize)
   const maxForSize = sizeRow?.stock ?? 0
   const totalStock = product.total_stock
 
   const handleAdd = () => {
     if (!selectedSize || maxForSize < 1) return
-    addItem(product, selectedSize, quantity, maxForSize)
+    addItem(product, selectedColor, selectedSize, quantity, maxForSize)
     setJustAdded(true)
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
     timeoutRef.current = setTimeout(() => setJustAdded(false), 1800)
@@ -113,7 +148,10 @@ export default function ProductDetail() {
 
         {/* Details */}
         <div>
-          {product.colorway && <p className="font-mono text-xs text-slate uppercase tracking-widest mb-2">{product.colorway}</p>}
+          {colors.length > 1 && (
+            <div className="mb-6"><div className="flex items-center justify-between mb-3"><span className="font-mono text-xs uppercase tracking-widest text-slate">Color</span><span className="font-mono text-xs text-paper">{selectedColor.name}</span></div><div className="flex flex-wrap gap-3">{colors.map((color) => <button key={color.id || color.name} type="button" onClick={() => { setSelectedColorId(color.id); setActiveImage(0); setSelectedSize(null); setQuantity(1) }} className={`flex items-center gap-2 border px-3 py-2 font-mono text-xs ${selectedColor.id === color.id ? 'border-acid text-acid' : 'border-panel-2 text-slate hover:text-paper'}`}><span className="w-4 h-4 rounded-full border border-paper/30" style={{ backgroundColor: color.hex_code || '#000000' }} />{color.name}</button>)}</div></div>
+          )}
+          {colors.length === 1 && product.colorway && <p className="font-mono text-xs text-slate uppercase tracking-widest mb-2">{product.colorway}</p>}
           <h1 className="font-display text-3xl sm:text-4xl uppercase text-paper leading-tight mb-3">{product.name}</h1>
           <div className="flex items-center gap-3 mb-6">
             <span className="font-mono text-xl text-paper">{formatINR(product.price)}</span>
@@ -178,7 +216,7 @@ export default function ProductDetail() {
           <div className="mt-10 pt-6 border-t border-panel-2 text-xs text-slate space-y-1.5 font-mono">
             <p>· DTF print, 240 GSM heavyweight cotton</p>
             <p>· Ships in 3–5 business days from Calicut, Kerala</p>
-            <p>· Limited batch — sizes lock permanently once sold</p>
+            <p>· Limited batch — stock locks permanently once sold</p>
           </div>
         </div>
       </div>

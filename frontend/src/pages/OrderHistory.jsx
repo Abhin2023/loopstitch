@@ -76,7 +76,7 @@ export default function OrderHistory() {
                     <p className="font-mono text-[11px] uppercase tracking-widest text-slate mb-2">Items</p>
                     {order.items.map((item) => (
                       <div key={item.id} className="flex justify-between gap-3 text-xs font-mono text-paper/80 py-1">
-                        <span className="min-w-0 break-words">{item.product_name} × {item.quantity} ({item.size})</span>
+                         <span className="min-w-0 break-words">{item.product_name}{item.color_name ? ` · ${item.color_name}` : ''} × {item.quantity} ({item.size})</span>
                         <span className="shrink-0">{formatINR(item.unit_price * item.quantity)}</span>
                       </div>
                     ))}

@@ -32,6 +32,8 @@ class Product(Base):
     compare_at_price = Column(Float, nullable=True)  # for "was ₹X" strike-through
     category = Column(String(100), default="tshirt", index=True)  # tshirt / hoodie / etc
     colorway = Column(String(100), default="")
+    meta_title = Column(String(255), nullable=True)
+    meta_description = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True, index=True)
     is_featured = Column(Boolean, default=False)
     created_at = Column(DateTime, default=_utcnow)
@@ -39,11 +41,31 @@ class Product(Base):
 
     images = relationship("ProductImage", back_populates="product", cascade="all, delete-orphan", order_by="ProductImage.position")
     sizes = relationship("ProductSize", back_populates="product", cascade="all, delete-orphan")
+    colors = relationship("ProductColor", back_populates="product", cascade="all, delete-orphan", order_by="ProductColor.position")
     order_items = relationship("OrderItem", back_populates="product")
 
     @property
     def total_stock(self):
+        if self.colors:
+            return sum(s.stock for color in self.colors for s in color.sizes)
         return sum(s.stock for s in self.sizes)
+
+
+class ProductColor(Base):
+    """A sellable color variant with its own images and size stock."""
+    __tablename__ = "product_colors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    name = Column(String(100), nullable=False)
+    hex_code = Column(String(7), default="#000000", nullable=False)
+    position = Column(Integer, default=0)
+
+    product = relationship("Product", back_populates="colors")
+    images = relationship("ProductImage", back_populates="color", cascade="all, delete-orphan", order_by="ProductImage.position")
+    sizes = relationship("ProductSize", back_populates="color", cascade="all, delete-orphan")
+
+    __table_args__ = (UniqueConstraint("product_id", "name", name="uq_product_color_name"),)
 
 
 class ProductImage(Base):
@@ -51,10 +73,12 @@ class ProductImage(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    color_id = Column(Integer, ForeignKey("product_colors.id"), nullable=True)
     url = Column(String(500), nullable=False)
     position = Column(Integer, default=0)
 
     product = relationship("Product", back_populates="images")
+    color = relationship("ProductColor", back_populates="images")
 
 
 class ProductSize(Base):
@@ -63,13 +87,15 @@ class ProductSize(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    color_id = Column(Integer, ForeignKey("product_colors.id"), nullable=True)
     size = Column(String(20), nullable=False)  # S, M, L, XL, XXL
     stock = Column(Integer, default=0)
 
     product = relationship("Product", back_populates="sizes")
+    color = relationship("ProductColor", back_populates="sizes")
 
     __table_args__ = (
-        UniqueConstraint("product_id", "size", name="uq_product_size"),
+        UniqueConstraint("product_id", "size", "color_id", name="uq_product_size_color"),
     )
 
 
@@ -173,6 +199,8 @@ class OrderItem(Base):
     order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
     product_name = Column(String(200), nullable=False)  # snapshot, survives product deletion
+    color_id = Column(Integer, nullable=True)
+    color_name = Column(String(100), default="")
     size = Column(String(20), nullable=False)
     quantity = Column(Integer, nullable=False)
     unit_price = Column(Float, nullable=False)

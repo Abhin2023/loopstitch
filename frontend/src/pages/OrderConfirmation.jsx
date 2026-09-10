@@ -71,7 +71,7 @@ export default function OrderConfirmation() {
             <div className="border border-panel-2 p-4 sm:p-6 mb-6">
               {(order.items || []).map((item) => (
                 <div key={item.id} className="flex justify-between gap-3 text-sm font-mono text-paper/80 py-1.5">
-                  <span className="min-w-0 break-words">{item.product_name} × {item.quantity} ({item.size})</span>
+                  <span className="min-w-0 break-words">{item.product_name}{item.color_name ? ` · ${item.color_name}` : ''} × {item.quantity} ({item.size})</span>
                   <span className="shrink-0">{formatINR(item.unit_price * item.quantity)}</span>
                 </div>
               ))}

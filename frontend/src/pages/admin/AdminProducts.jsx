@@ -48,8 +48,9 @@ export default function AdminProducts() {
               <div className="flex-1 min-w-0">
                 <p className="text-paper text-sm truncate">{p.name}</p>
                 <p className="font-mono text-[11px] text-slate mt-0.5 truncate">
-                  {formatINR(p.price)} · stock {p.total_stock} · {p.is_active ? 'active' : 'hidden'} {p.is_featured && '· featured'}
+                  {formatINR(p.price)} · stock {p.total_stock} · {p.colors?.length || 0} color{p.colors?.length === 1 ? '' : 's'} · {p.is_active ? 'active' : 'hidden'} {p.is_featured && '· featured'}
                 </p>
+                {p.colors?.length > 0 && <div className="flex gap-1.5 mt-2">{p.colors.map((color) => <span key={color.id} title={color.name} className="w-3 h-3 rounded-full border border-paper/30" style={{ backgroundColor: color.hex_code || '#000000' }} />)}</div>}
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <Link to={`/admin/products/${p.id}`} className="font-mono text-xs uppercase tracking-widest text-acid hover:underline px-2 py-2">

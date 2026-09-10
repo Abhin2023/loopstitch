@@ -17,6 +17,11 @@ export default function Shop() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    document.title = category ? `${CATEGORIES.find((item) => item.value === category)?.label || 'Shop'} | Loopstitch Co.` : 'Shop the drop | Loopstitch Co.'
+    return () => { document.title = 'Loopstitch Co.' }
+  }, [category])
+
+  useEffect(() => {
     setLoading(true)
     client
       .get('/api/products', { params: category ? { category } : {} })
