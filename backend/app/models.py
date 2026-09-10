@@ -200,7 +200,7 @@ class OrderItem(Base):
     product_id = Column(Integer, ForeignKey("products.id"), nullable=True)
     product_name = Column(String(200), nullable=False)  # snapshot, survives product deletion
     color_id = Column(Integer, nullable=True)
-    color_name = Column(String(100), default="")
+    color_name = Column(String(100), default="", nullable=False)
     size = Column(String(20), nullable=False)
     quantity = Column(Integer, nullable=False)
     unit_price = Column(Float, nullable=False)

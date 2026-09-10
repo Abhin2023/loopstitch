@@ -130,7 +130,7 @@ class OrderItemOut(BaseModel):
     id: int
     product_name: str
     color_id: Optional[int] = None
-    color_name: str = ""
+    color_name: Optional[str] = ""
     size: str
     quantity: int
     unit_price: float

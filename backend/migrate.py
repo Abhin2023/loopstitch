@@ -84,6 +84,9 @@ def ensure_columns() -> None:
             for column in columns:
                 if column.name not in existing:
                     add_column(conn, table, column)
+        if "color_name" in get_columns(conn, "order_items"):
+            conn.execute(sa.text("UPDATE order_items SET color_name = '' WHERE color_name IS NULL"))
+            print("  + backfilled empty color names on existing order items")
 
 
 def ensure_product_color_schema() -> None:
