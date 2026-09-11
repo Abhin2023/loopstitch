@@ -695,6 +695,23 @@ def cart_quote(payload: schemas.QuoteRequest, db: Session = Depends(get_db)):
     }
 
 
+# ============================================================
+# CUSTOMER ORDER HISTORY  (requires customer JWT)
+# ============================================================
+@app.get("/api/orders/history", response_model=List[schemas.OrderHistoryOut])
+def customer_order_history(
+    db: Session = Depends(get_db),
+    current: models.Customer = Depends(customer_auth.require_customer),
+):
+    """Return all orders linked to the authenticated customer."""
+    orders = db.query(models.Order).options(
+        joinedload(models.Order.items)
+    ).filter(
+        models.Order.customer_id == current.id
+    ).order_by(models.Order.created_at.desc()).all()
+    return orders
+
+
 @app.get("/api/orders/{order_number}", response_model=schemas.OrderOut)
 def get_order_by_number(order_number: str, token: Optional[str] = Depends(auth.oauth2_scheme), db: Session = Depends(get_db)):
     order = db.query(models.Order).options(joinedload(models.Order.items)).filter(
@@ -703,7 +720,6 @@ def get_order_by_number(order_number: str, token: Optional[str] = Depends(auth.o
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     if token is None:
-        email_from_query = None
         raise HTTPException(status_code=401, detail="Authentication required to view orders")
     try:
         payload = auth.jwt.decode(token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
@@ -738,23 +754,6 @@ def download_order_invoice(order_number: str, token: Optional[str] = Depends(aut
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="invoice-{order.order_number}.pdf"'},
     )
-
-
-# ============================================================
-# CUSTOMER ORDER HISTORY  (requires customer JWT)
-# ============================================================
-@app.get("/api/orders/history", response_model=List[schemas.OrderHistoryOut])
-def customer_order_history(
-    db: Session = Depends(get_db),
-    current: models.Customer = Depends(customer_auth.require_customer),
-):
-    """Return all orders linked to the authenticated customer."""
-    orders = db.query(models.Order).options(
-        joinedload(models.Order.items)
-    ).filter(
-        models.Order.customer_id == current.id
-    ).order_by(models.Order.created_at.desc()).all()
-    return orders
 
 
 # ============================================================
