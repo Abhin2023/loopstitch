@@ -108,6 +108,11 @@ class OrderStatus(str, enum.Enum):
     failed = "failed"
 
 
+class OrderType(str, enum.Enum):
+    standard = "standard"
+    custom = "custom"
+
+
 class OfferScope(str, enum.Enum):
     all = "all"
     category = "category"
@@ -186,10 +191,13 @@ class Order(Base):
     cod_advance_paid = Column(Float, default=0.0)   # amount paid online for COD orders
     cod_advance_percent = Column(Float, default=0.0) # percentage charged upfront
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
+    order_type = Column(Enum(OrderType), default=OrderType.standard, index=True)
+    custom_total_pieces = Column(Integer, nullable=True)
     created_at = Column(DateTime, default=_utcnow)
 
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
     customer = relationship("Customer", back_populates="orders")
+    custom_designs = relationship("CustomTshirtDesign", back_populates="order")
 
 
 class OrderItem(Base):
@@ -205,6 +213,9 @@ class OrderItem(Base):
     quantity = Column(Integer, nullable=False)
     unit_price = Column(Float, nullable=False)
     line_discount = Column(Float, default=0)  # total discount attributed to this line (BOGO free items)
+    is_custom = Column(Boolean, default=False)
+    print_area = Column(String(50), nullable=True)
+    design_notes = Column(Text, nullable=True)
 
     order = relationship("Order", back_populates="items")
     product = relationship("Product", back_populates="order_items")
@@ -271,3 +282,53 @@ class OTP(Base):
     expires_at = Column(DateTime, nullable=False)
     used = Column(Boolean, default=False)
     created_at = Column(DateTime, default=_utcnow)
+
+
+class CustomTshirtConfig(Base):
+    """Global configuration for custom t-shirt printing."""
+    __tablename__ = "custom_tshirt_config"
+
+    id = Column(Integer, primary_key=True, index=True)
+    base_price = Column(Float, nullable=False, default=0)
+    min_order_qty = Column(Integer, nullable=False, default=1)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+
+class CustomTshirtColor(Base):
+    """Available colors for custom t-shirts (admin-managed, no stock count)."""
+    __tablename__ = "custom_tshirt_colors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False, unique=True)
+    hex_code = Column(String(7), default="#000000", nullable=False)
+    is_active = Column(Boolean, default=True, index=True)
+    position = Column(Integer, default=0)
+
+
+class CustomTshirtQtyDiscount(Base):
+    """Quantity-based discount tiers for custom t-shirt orders."""
+    __tablename__ = "custom_tshirt_qty_discounts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    min_qty = Column(Integer, nullable=False)
+    max_qty = Column(Integer, nullable=True)  # None = unlimited
+    discount_percent = Column(Float, nullable=False, default=0)
+    position = Column(Integer, default=0)
+
+
+class CustomTshirtDesign(Base):
+    """Uploaded design files for custom t-shirt orders."""
+    __tablename__ = "custom_tshirt_designs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)
+    file_url = Column(String(500), nullable=False)
+    file_name = Column(String(255), nullable=False)
+    file_type = Column(String(20), nullable=False)  # "image" or "pdf"
+    print_area = Column(String(50), nullable=False)  # "front", "back", "side"
+    notes = Column(Text, default="")
+    created_at = Column(DateTime, default=_utcnow)
+
+    order = relationship("Order", back_populates="custom_designs")

@@ -5,6 +5,8 @@ import logging
 import datetime
 from typing import List, Optional
 
+from app import gcs
+
 logger = logging.getLogger(__name__)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -403,12 +405,15 @@ def delete_product(product_id: int, db: Session = Depends(get_db), current: mode
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     for img in product.images:
-        try:
-            fpath = os.path.join(os.path.dirname(os.path.dirname(__file__)), img.url.lstrip("/"))
-            if os.path.exists(fpath):
-                os.remove(fpath)
-        except OSError:
-            pass
+        if img.url.startswith("http"):
+            gcs.delete_from_gcs(gcs.get_filename_from_url(img.url))
+        else:
+            try:
+                fpath = os.path.join(os.path.dirname(os.path.dirname(__file__)), img.url.lstrip("/"))
+                if os.path.exists(fpath):
+                    os.remove(fpath)
+            except OSError:
+                pass
     db.delete(product)
     db.commit()
     return {"detail": "Product deleted"}
@@ -444,9 +449,14 @@ async def upload_product_images(
 
         ext = os.path.splitext(file.filename)[1] or ".jpg"
         fname = f"{uuid.uuid4().hex}{ext}"
-        path = os.path.join(UPLOAD_DIR, fname)
-        with open(path, "wb") as f:
-            f.write(contents)
+
+        if os.getenv("GCS_BUCKET_NAME") and os.getenv("GCS_SERVICE_ACCOUNT_B64"):
+            url = gcs.upload_to_gcs(contents, fname)
+        else:
+            path = os.path.join(UPLOAD_DIR, fname)
+            with open(path, "wb") as f:
+                f.write(contents)
+            url = f"/uploads/products/{fname}"
 
         position = db.query(models.ProductImage).filter(
             models.ProductImage.product_id == product_id,
@@ -454,7 +464,7 @@ async def upload_product_images(
         ).count()
         db.add(models.ProductImage(
             product_id=product_id, color_id=color_id,
-            url=f"/uploads/products/{fname}", position=position
+            url=url, position=position
         ))
 
     db.commit()
@@ -469,12 +479,15 @@ def delete_product_image(product_id: int, image_id: int, db: Session = Depends(g
     ).first()
     if not image:
         raise HTTPException(status_code=404, detail="Image not found")
-    try:
-        fpath = os.path.join(os.path.dirname(os.path.dirname(__file__)), image.url.lstrip("/"))
-        if os.path.exists(fpath):
-            os.remove(fpath)
-    except OSError:
-        pass
+    if image.url.startswith("http"):
+        gcs.delete_from_gcs(gcs.get_filename_from_url(image.url))
+    else:
+        try:
+            fpath = os.path.join(os.path.dirname(os.path.dirname(__file__)), image.url.lstrip("/"))
+            if os.path.exists(fpath):
+                os.remove(fpath)
+        except OSError:
+            pass
     db.delete(image)
     db.commit()
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
@@ -1332,3 +1345,366 @@ def admin_stats(db: Session = Depends(get_db), current: models.Admin = Depends(a
         "low_stock_sizes": low_stock,
         "out_of_stock_sizes": out_of_stock,
     }
+
+
+# ============================================================
+# CUSTOM T-SHIRT — public
+# ============================================================
+CUSTOM_ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif", "application/pdf"}
+
+
+@app.get("/api/custom/config", response_model=schemas.CustomConfigOut)
+def get_custom_config(db: Session = Depends(get_db)):
+    config = db.query(models.CustomTshirtConfig).first()
+    if not config:
+        raise HTTPException(status_code=404, detail="Custom t-shirt not configured")
+    return config
+
+
+@app.get("/api/custom/colors", response_model=List[schemas.CustomColorOut])
+def get_custom_colors(db: Session = Depends(get_db)):
+    return db.query(models.CustomTshirtColor).filter(
+        models.CustomTshirtColor.is_active == True  # noqa: E712
+    ).order_by(models.CustomTshirtColor.position).all()
+
+
+@app.post("/api/custom/designs/upload")
+async def upload_custom_design(
+    file: UploadFile = File(...),
+    print_area: str = Form("front"),
+    notes: str = Form(""),
+):
+    if file.content_type not in CUSTOM_ALLOWED_TYPES:
+        raise HTTPException(status_code=400, detail=f"Unsupported file type: {file.content_type}")
+    contents = b""
+    while chunk := await file.read(8192):
+        contents += chunk
+        if len(contents) > MAX_UPLOAD_SIZE:
+            raise HTTPException(status_code=400, detail="File too large. Maximum size is 10 MB.")
+
+    ext = os.path.splitext(file.filename)[1] or ".jpg"
+    fname = f"custom-{uuid.uuid4().hex}{ext}"
+    url = gcs.upload_to_gcs(contents, fname)
+    file_type = "pdf" if file.content_type == "application/pdf" else "image"
+    return {"file_url": url, "file_name": file.filename, "file_type": file_type, "print_area": print_area, "notes": notes}
+
+
+@app.post("/api/custom/quote", response_model=schemas.CustomQuoteOut)
+def custom_quote(payload: schemas.CustomQuoteRequest, db: Session = Depends(get_db)):
+    config = db.query(models.CustomTshirtConfig).first()
+    if not config:
+        raise HTTPException(status_code=404, detail="Custom t-shirt not configured")
+
+    total_pieces = sum(
+        s["quantity"] for sel in payload.colors for s in sel.sizes
+    )
+    if total_pieces < config.min_order_qty:
+        raise HTTPException(status_code=400, detail=f"Minimum order is {config.min_order_qty} pieces")
+
+    base_total = total_pieces * config.base_price
+
+    discount_pct = 0.0
+    tiers = db.query(models.CustomTshirtQtyDiscount).order_by(models.CustomTshirtQtyDiscount.min_qty.desc()).all()
+    for tier in tiers:
+        if total_pieces >= tier.min_qty and (tier.max_qty is None or total_pieces <= tier.max_qty):
+            discount_pct = tier.discount_percent
+            break
+
+    discount_amount = base_total * (discount_pct / 100)
+    raw_settings = {r.key: r.value for r in db.query(models.Setting).all()}
+    shipping_fee = float(raw_settings.get("delivery_fee", "45"))
+    free_threshold = float(raw_settings.get("free_shipping_threshold", "1000"))
+    if base_total >= free_threshold:
+        shipping_fee = 0
+
+    return schemas.CustomQuoteOut(
+        total_pieces=total_pieces,
+        base_price=config.base_price,
+        subtotal=base_total,
+        discount_percent=discount_pct,
+        discount_amount=discount_amount,
+        shipping_fee=shipping_fee,
+        total=base_total - discount_amount + shipping_fee,
+    )
+
+
+@app.post("/api/custom/order", response_model=schemas.OrderOut)
+def create_custom_order(
+    payload: schemas.CustomOrderCreate,
+    db: Session = Depends(get_db),
+    current: models.Customer = Depends(customer_auth.get_current_customer),
+):
+    config = db.query(models.CustomTshirtConfig).first()
+    if not config or not config.is_active:
+        raise HTTPException(status_code=400, detail="Custom t-shirt printing is not available")
+
+    total_pieces = sum(
+        s["quantity"] for sel in payload.colors for s in sel.sizes
+    )
+    if total_pieces < config.min_order_qty:
+        raise HTTPException(status_code=400, detail=f"Minimum order is {config.min_order_qty} pieces")
+
+    payment_method = payload.payment_method if payload.payment_method in ("cod", "online") else "cod"
+    raw_settings = {r.key: r.value for r in db.query(models.Setting).all()}
+    if payment_method == "cod" and raw_settings.get("cod_enabled", "false") != "true":
+        raise HTTPException(status_code=400, detail="Cash on delivery is not available.")
+
+    customer_id = None
+    if current:
+        customer_id = current.id
+    else:
+        phone_digits = "".join(c for c in payload.customer_phone if c.isdigit())
+        if len(phone_digits) > 10:
+            phone_digits = phone_digits[-10:]
+        existing = db.query(models.Customer).filter(models.Customer.phone == phone_digits).first()
+        if existing:
+            customer_id = existing.id
+        else:
+            new_cust = models.Customer(phone=phone_digits, name=payload.customer_name, email=payload.customer_email)
+            db.add(new_cust)
+            db.flush()
+            customer_id = new_cust.id
+
+    order = models.Order(
+        order_number=generate_order_number(),
+        customer_name=payload.customer_name,
+        customer_email=payload.customer_email,
+        customer_phone=payload.customer_phone,
+        shipping_address=payload.shipping_address,
+        city=payload.city, state=payload.state, pincode=payload.pincode,
+        status=models.OrderStatus.pending,
+        payment_method=payment_method,
+        customer_id=customer_id,
+        order_type=models.OrderType.custom,
+        custom_total_pieces=total_pieces,
+    )
+    db.add(order)
+    db.flush()
+
+    base_total = total_pieces * config.base_price
+    discount_pct = 0.0
+    tiers = db.query(models.CustomTshirtQtyDiscount).order_by(models.CustomTshirtQtyDiscount.min_qty.desc()).all()
+    for tier in tiers:
+        if total_pieces >= tier.min_qty and (tier.max_qty is None or total_pieces <= tier.max_qty):
+            discount_pct = tier.discount_percent
+            break
+    discount_amount = base_total * (discount_pct / 100)
+
+    for sel in payload.colors:
+        color = db.query(models.CustomTshirtColor).filter(models.CustomTshirtColor.id == sel.color_id).first()
+        if not color:
+            raise HTTPException(status_code=400, detail=f"Color {sel.color_id} not found")
+        for size_info in sel.sizes:
+            qty = size_info["quantity"]
+            size_label = size_info["size"]
+            order_item = models.OrderItem(
+                order_id=order.id,
+                product_id=None,
+                product_name=f"Custom T-Shirt ({color.name})",
+                color_id=color.id,
+                color_name=color.name,
+                size=size_label,
+                quantity=qty,
+                unit_price=config.base_price,
+                line_discount=0,
+                is_custom=True,
+                print_area=None,
+                design_notes=None,
+            )
+            db.add(order_item)
+
+    for design in payload.designs:
+        custom_design = models.CustomTshirtDesign(
+            order_id=order.id,
+            file_url=design.file_url,
+            file_name=design.file_name,
+            file_type=design.file_type,
+            print_area=design.print_area,
+            notes=design.notes,
+        )
+        db.add(custom_design)
+
+    shipping_fee = float(raw_settings.get("delivery_fee", "45"))
+    free_threshold = float(raw_settings.get("free_shipping_threshold", "1000"))
+    if base_total >= free_threshold:
+        shipping_fee = 0
+
+    order.subtotal = base_total
+    order.discount_amount = discount_amount
+    order.shipping_fee = shipping_fee
+    order.total = base_total - discount_amount + shipping_fee
+
+    if payment_method == "cod":
+        advance_pct = float(raw_settings.get("cod_advance_percent", "10"))
+        order.cod_advance_percent = advance_pct
+        order.cod_advance_paid = order.total * (advance_pct / 100)
+
+    db.commit()
+    db.refresh(order)
+    return order
+
+
+# ============================================================
+# CUSTOM T-SHIRT — admin
+# ============================================================
+@app.get("/api/admin/custom/config", response_model=schemas.CustomConfigOut)
+def admin_get_custom_config(db: Session = Depends(get_db), current: models.Admin = Depends(auth.get_current_admin)):
+    config = db.query(models.CustomTshirtConfig).first()
+    if not config:
+        config = models.CustomTshirtConfig(base_price=299, min_order_qty=10, is_active=True)
+        db.add(config)
+        db.commit()
+        db.refresh(config)
+    return config
+
+
+@app.patch("/api/admin/custom/config", response_model=schemas.CustomConfigOut)
+def admin_update_custom_config(
+    payload: schemas.CustomConfigUpdate,
+    db: Session = Depends(get_db),
+    current: models.Admin = Depends(auth.get_current_admin),
+):
+    config = db.query(models.CustomTshirtConfig).first()
+    if not config:
+        config = models.CustomTshirtConfig(base_price=299, min_order_qty=10, is_active=True)
+        db.add(config)
+        db.flush()
+    if payload.base_price is not None:
+        config.base_price = payload.base_price
+    if payload.min_order_qty is not None:
+        config.min_order_qty = payload.min_order_qty
+    if payload.is_active is not None:
+        config.is_active = payload.is_active
+    db.commit()
+    db.refresh(config)
+    return config
+
+
+@app.get("/api/admin/custom/colors", response_model=List[schemas.CustomColorOut])
+def admin_list_custom_colors(db: Session = Depends(get_db), current: models.Admin = Depends(auth.get_current_admin)):
+    return db.query(models.CustomTshirtColor).order_by(models.CustomTshirtColor.position).all()
+
+
+@app.post("/api/admin/custom/colors", response_model=schemas.CustomColorOut)
+def admin_create_custom_color(
+    payload: schemas.CustomColorIn,
+    db: Session = Depends(get_db),
+    current: models.Admin = Depends(auth.get_current_admin),
+):
+    existing = db.query(models.CustomTshirtColor).filter(models.CustomTshirtColor.name == payload.name).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Color name already exists")
+    color = models.CustomTshirtColor(**payload.model_dump())
+    db.add(color)
+    db.commit()
+    db.refresh(color)
+    return color
+
+
+@app.patch("/api/admin/custom/colors/{color_id}", response_model=schemas.CustomColorOut)
+def admin_update_custom_color(
+    color_id: int,
+    payload: schemas.CustomColorUpdate,
+    db: Session = Depends(get_db),
+    current: models.Admin = Depends(auth.get_current_admin),
+):
+    color = db.query(models.CustomTshirtColor).filter(models.CustomTshirtColor.id == color_id).first()
+    if not color:
+        raise HTTPException(status_code=404, detail="Color not found")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(color, field, value)
+    db.commit()
+    db.refresh(color)
+    return color
+
+
+@app.delete("/api/admin/custom/colors/{color_id}")
+def admin_delete_custom_color(
+    color_id: int,
+    db: Session = Depends(get_db),
+    current: models.Admin = Depends(auth.get_current_admin),
+):
+    color = db.query(models.CustomTshirtColor).filter(models.CustomTshirtColor.id == color_id).first()
+    if not color:
+        raise HTTPException(status_code=404, detail="Color not found")
+    db.delete(color)
+    db.commit()
+    return {"detail": "Color deleted"}
+
+
+@app.get("/api/admin/custom/discounts", response_model=List[schemas.CustomQtyDiscountOut])
+def admin_list_custom_discounts(db: Session = Depends(get_db), current: models.Admin = Depends(auth.get_current_admin)):
+    return db.query(models.CustomTshirtQtyDiscount).order_by(models.CustomTshirtQtyDiscount.position).all()
+
+
+@app.post("/api/admin/custom/discounts", response_model=schemas.CustomQtyDiscountOut)
+def admin_create_custom_discount(
+    payload: schemas.CustomQtyDiscountIn,
+    db: Session = Depends(get_db),
+    current: models.Admin = Depends(auth.get_current_admin),
+):
+    tier = models.CustomTshirtQtyDiscount(**payload.model_dump())
+    db.add(tier)
+    db.commit()
+    db.refresh(tier)
+    return tier
+
+
+@app.put("/api/admin/custom/discounts/{tier_id}", response_model=schemas.CustomQtyDiscountOut)
+def admin_update_custom_discount(
+    tier_id: int,
+    payload: schemas.CustomQtyDiscountIn,
+    db: Session = Depends(get_db),
+    current: models.Admin = Depends(auth.get_current_admin),
+):
+    tier = db.query(models.CustomTshirtQtyDiscount).filter(models.CustomTshirtQtyDiscount.id == tier_id).first()
+    if not tier:
+        raise HTTPException(status_code=404, detail="Discount tier not found")
+    for field, value in payload.model_dump().items():
+        setattr(tier, field, value)
+    db.commit()
+    db.refresh(tier)
+    return tier
+
+
+@app.delete("/api/admin/custom/discounts/{tier_id}")
+def admin_delete_custom_discount(
+    tier_id: int,
+    db: Session = Depends(get_db),
+    current: models.Admin = Depends(auth.get_current_admin),
+):
+    tier = db.query(models.CustomTshirtQtyDiscount).filter(models.CustomTshirtQtyDiscount.id == tier_id).first()
+    if not tier:
+        raise HTTPException(status_code=404, detail="Discount tier not found")
+    db.delete(tier)
+    db.commit()
+    return {"detail": "Discount tier deleted"}
+
+
+@app.get("/api/admin/custom/orders")
+def admin_list_custom_orders(
+    db: Session = Depends(get_db),
+    current: models.Admin = Depends(auth.get_current_admin),
+):
+    orders = db.query(models.Order).filter(
+        models.Order.order_type == models.OrderType.custom
+    ).order_by(models.Order.created_at.desc()).all()
+    return [schemas.OrderOut.model_validate(o) for o in orders]
+
+
+@app.get("/api/admin/custom/orders/{order_id}")
+def admin_get_custom_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current: models.Admin = Depends(auth.get_current_admin),
+):
+    order = db.query(models.Order).filter(
+        models.Order.id == order_id, models.Order.order_type == models.OrderType.custom
+    ).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Custom order not found")
+    designs = db.query(models.CustomTshirtDesign).filter(
+        models.CustomTshirtDesign.order_id == order.id
+    ).all()
+    out = schemas.OrderOut.model_validate(order)
+    return {"order": out, "designs": [schemas.CustomDesignOut.model_validate(d) for d in designs]}

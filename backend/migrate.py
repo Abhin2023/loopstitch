@@ -58,11 +58,16 @@ def ensure_columns() -> None:
             models.Order.cod_advance_paid,
             models.Order.cod_advance_percent,
             models.Order.customer_id,
+            models.Order.order_type,
+            models.Order.custom_total_pieces,
         ],
         "order_items": [
             models.OrderItem.line_discount,
             models.OrderItem.color_id,
             models.OrderItem.color_name,
+            models.OrderItem.is_custom,
+            models.OrderItem.print_area,
+            models.OrderItem.design_notes,
         ],
         "products": [
             models.Product.meta_title,
@@ -202,20 +207,43 @@ def seed_settings() -> None:
         db.close()
 
 
+def ensure_custom_tshirt_tables() -> None:
+    """Create custom t-shirt tables and seed default config."""
+    with engine.begin() as conn:
+        insp = sa.inspect(conn)
+        for table_name in ["custom_tshirt_config", "custom_tshirt_colors", "custom_tshirt_qty_discounts", "custom_tshirt_designs"]:
+            if table_name not in insp.get_table_names():
+                print(f"  + creating '{table_name}' table")
+                table = models.Base.metadata.tables[table_name]
+                table.create(bind=conn, checkfirst=True)
+
+    db = SessionLocal()
+    try:
+        config = db.query(models.CustomTshirtConfig).first()
+        if not config:
+            db.add(models.CustomTshirtConfig(base_price=299, min_order_qty=10, is_active=True))
+            db.commit()
+            print("  + seeded custom t-shirt config (base_price=299, min_order_qty=10)")
+    finally:
+        db.close()
+
+
 def main() -> None:
     print("Loopstitch migration")
-    print("1/5 creating missing tables...")
+    print("1/6 creating missing tables...")
     Base.metadata.create_all(bind=engine)
-    print("2/5 ensuring customer tables...")
+    print("2/6 ensuring customer tables...")
     ensure_customer_tables()
-    print("3/5 ensuring notifications table...")
+    print("3/6 ensuring notifications table...")
     ensure_notifications_table()
-    print("4/5 adding missing columns...")
+    print("4/6 adding missing columns...")
     ensure_columns()
     print("5/6 adding color variants...")
     ensure_product_color_schema()
     print("6/6 seeding default settings...")
     seed_settings()
+    print("6.5/6 ensuring custom t-shirt tables...")
+    ensure_custom_tshirt_tables()
     print("Done.")
 
 

@@ -14,6 +14,7 @@ import Cart from './pages/Cart'
 import Checkout from './pages/Checkout'
 import OrderConfirmation from './pages/OrderConfirmation'
 import OrderHistory from './pages/OrderHistory'
+import Customize from './pages/Customize'
 import About from './pages/About'
 import Terms from './pages/Terms'
 import Privacy from './pages/Privacy'
@@ -30,6 +31,8 @@ import AdminCouponForm from './pages/admin/AdminCouponForm'
 import AdminSettings from './pages/admin/AdminSettings'
 import AdminOrders from './pages/admin/AdminOrders'
 import AdminNotifications from './pages/admin/AdminNotifications'
+import AdminCustomTshirt from './pages/admin/AdminCustomTshirt'
+import AdminCustomOrders from './pages/admin/AdminCustomOrders'
 
 export default function App() {
   return (
@@ -44,6 +47,7 @@ export default function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/shop" element={<Shop />} />
                 <Route path="/product/:slug" element={<ProductDetail />} />
+                <Route path="/customize" element={<Customize />} />
                 <Route path="/cart" element={<Cart />} />
                 <Route path="/checkout" element={<Checkout />} />
                 <Route path="/order/confirm" element={<OrderConfirmation />} />
@@ -70,6 +74,8 @@ export default function App() {
                 <Route path="coupons/:id" element={<AdminCouponForm />} />
                 <Route path="settings" element={<AdminSettings />} />
                 <Route path="orders" element={<AdminOrders />} />
+                <Route path="custom-tshirt" element={<AdminCustomTshirt />} />
+                <Route path="custom-orders" element={<AdminCustomOrders />} />
                 <Route path="notifications" element={<AdminNotifications />} />
                 <Route path="*" element={<Navigate to="dashboard" replace />} />
               </Route>

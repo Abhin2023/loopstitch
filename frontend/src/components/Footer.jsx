@@ -7,8 +7,7 @@ export default function Footer() {
         <div>
           <div className="font-display text-xl text-paper mb-3">LOOPSTITCH<span className="text-riot">.</span></div>
           <p className="text-sm text-slate leading-relaxed max-w-xs">
-            Small-batch DTF-printed tees for anime fans and streetwear heads.
-            Every drop is limited — once a size is gone, it's gone.
+            Limited anime drops and custom prints on premium tees, made in Calicut, Kerala.
           </p>
         </div>
         <div>
@@ -16,6 +15,7 @@ export default function Footer() {
           <ul className="space-y-2 text-sm text-paper/80">
             <li><Link to="/shop" className="hover:text-acid transition-colors">All products</Link></li>
             <li><Link to="/shop?category=tshirt" className="hover:text-acid transition-colors">Tees</Link></li>
+            <li><Link to="/customize" className="hover:text-acid transition-colors">Custom printing</Link></li>
             <li><Link to="/cart" className="hover:text-acid transition-colors">Cart</Link></li>
           </ul>
         </div>
@@ -33,7 +33,7 @@ export default function Footer() {
         </div>
       </div>
       <div className="border-t border-panel-2 px-5 py-5 text-center font-mono text-[10px] sm:text-[11px] tracking-[0.08em] sm:tracking-widest text-slate-dim leading-relaxed">
-        © {new Date().getFullYear()} LOOPSTITCH CO. — PRINTED ON DEMAND, MADE FOR FANS.
+        © {new Date().getFullYear()} LOOPSTITCH CO. — LIMITED DROPS AND CUSTOM PRINTS, MADE IN CALICUT.
       </div>
     </footer>
   )

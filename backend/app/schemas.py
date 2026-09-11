@@ -135,6 +135,9 @@ class OrderItemOut(BaseModel):
     quantity: int
     unit_price: float
     line_discount: float = 0
+    is_custom: bool = False
+    print_area: Optional[str] = None
+    design_notes: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -162,6 +165,8 @@ class OrderOut(BaseModel):
     razorpay_order_id: Optional[str] = ""
     cod_advance_paid: Optional[float] = 0.0
     cod_advance_percent: Optional[float] = 0.0
+    order_type: str = "standard"
+    custom_total_pieces: Optional[int] = None
     created_at: datetime
     items: List[OrderItemOut] = []
 
@@ -428,3 +433,122 @@ class OrderHistoryOut(BaseModel):
 
 # Rebuild forward refs for CustomerTokenResponse
 CustomerTokenResponse.model_rebuild()
+
+
+# ---------- Custom T-Shirt ----------
+class CustomConfigOut(BaseModel):
+    base_price: float
+    min_order_qty: int
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
+class CustomConfigUpdate(BaseModel):
+    base_price: Optional[float] = Field(default=None, gt=0)
+    min_order_qty: Optional[int] = Field(default=None, ge=1)
+    is_active: Optional[bool] = None
+
+
+class CustomColorIn(BaseModel):
+    name: str
+    hex_code: str = "#000000"
+    is_active: bool = True
+    position: int = 0
+
+
+class CustomColorUpdate(BaseModel):
+    name: Optional[str] = None
+    hex_code: Optional[str] = None
+    is_active: Optional[bool] = None
+    position: Optional[int] = None
+
+
+class CustomColorOut(BaseModel):
+    id: int
+    name: str
+    hex_code: str
+    is_active: bool
+    position: int
+
+    class Config:
+        from_attributes = True
+
+
+class CustomQtyDiscountIn(BaseModel):
+    min_qty: int = Field(ge=1)
+    max_qty: Optional[int] = Field(default=None, ge=1)
+    discount_percent: float = Field(ge=0, le=100)
+    position: int = 0
+
+
+class CustomQtyDiscountUpdate(BaseModel):
+    min_qty: Optional[int] = Field(default=None, ge=1)
+    max_qty: Optional[int] = Field(default=None, ge=1)
+    discount_percent: Optional[float] = Field(default=None, ge=0, le=100)
+    position: Optional[int] = None
+
+
+class CustomQtyDiscountOut(BaseModel):
+    id: int
+    min_qty: int
+    max_qty: Optional[int]
+    discount_percent: float
+    position: int
+
+    class Config:
+        from_attributes = True
+
+
+class CustomDesignOut(BaseModel):
+    id: int
+    file_url: str
+    file_name: str
+    file_type: str
+    print_area: str
+    notes: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CustomColorSelection(BaseModel):
+    color_id: int
+    sizes: List[dict]  # [{"size": "M", "quantity": 5}, ...]
+
+
+class CustomDesignInput(BaseModel):
+    file_url: str
+    file_name: str
+    file_type: str  # "image" or "pdf"
+    print_area: str  # "front", "back", "side"
+    notes: str = ""
+
+
+class CustomOrderCreate(BaseModel):
+    customer_name: str
+    customer_email: EmailStr
+    customer_phone: str
+    shipping_address: str
+    city: str = ""
+    state: str = ""
+    pincode: str = ""
+    payment_method: str = "cod"
+    colors: List[CustomColorSelection]
+    designs: List[CustomDesignInput] = []
+
+
+class CustomQuoteRequest(BaseModel):
+    colors: List[CustomColorSelection]
+
+
+class CustomQuoteOut(BaseModel):
+    total_pieces: int
+    base_price: float
+    subtotal: float
+    discount_percent: float = 0
+    discount_amount: float = 0
+    shipping_fee: float
+    total: float

@@ -9,6 +9,7 @@ import LoginModal from './LoginModal'
 const NAV_LINKS = [
   { to: '/shop', label: 'Shop' },
   { to: '/shop?category=tshirt', label: 'Tees' },
+  { to: '/customize', label: 'Custom' },
   { to: '/about', label: 'About' },
 ]
 
