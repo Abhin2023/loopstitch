@@ -5,24 +5,10 @@ import { useCustomerAuth } from '../context/CustomerAuthContext'
 import Loader from '../components/Loader'
 import DesignUploader from '../components/custom/DesignUploader'
 import PriceSummary from '../components/custom/PriceSummary'
+import TshirtPreview from '../components/custom/TshirtPreview'
 import LoginModal from '../components/LoginModal'
 
 const SIZES = ['S', 'M', 'L', 'XL', 'XXL']
-
-function TshirtPreview() {
-  return (
-    <div className="relative w-full max-w-sm aspect-square mx-auto bg-panel border border-panel-2 flex items-center justify-center overflow-hidden">
-      <div className="absolute inset-0 screentone opacity-60" />
-      <svg viewBox="0 0 320 320" className="relative w-4/5 h-4/5" role="img" aria-label="Blank t-shirt preview">
-        <path d="M106 65 55 91 30 145l42 25 18-31v111h140V139l18 31 42-25-25-54-51-26-27 31h-36l-27-31Z" fill="var(--color-panel-2)" stroke="var(--color-paper)" strokeWidth="3" />
-        <path d="M124 65c2 20 15 31 36 31s34-11 36-31" fill="none" stroke="var(--color-paper)" strokeWidth="3" />
-        <path d="M105 137v108M215 137v108" stroke="var(--color-slate)" strokeWidth="2" strokeDasharray="5 7" />
-        <text x="160" y="190" textAnchor="middle" fill="var(--color-acid)" fontFamily="JetBrains Mono, monospace" fontSize="11" letterSpacing="2">YOUR DESIGN</text>
-      </svg>
-      <span className="absolute bottom-3 left-3 font-mono text-[10px] uppercase tracking-widest text-slate">Blank tee preview</span>
-    </div>
-  )
-}
 
 export default function Customize() {
   const navigate = useNavigate()
@@ -36,6 +22,8 @@ export default function Customize() {
   const [targetQty, setTargetQty] = useState('')
   const [selections, setSelections] = useState([])
   const [designs, setDesigns] = useState([])
+  const [previewColorId, setPreviewColorId] = useState(null)
+  const [previewView, setPreviewView] = useState('front')
   const [quote, setQuote] = useState(null)
   const [quoteLoading, setQuoteLoading] = useState(false)
   const [form, setForm] = useState({
@@ -98,16 +86,30 @@ export default function Customize() {
     return () => clearTimeout(timeout)
   }, [selections, selectedQuantity, config?.min_order_qty])
 
+  useEffect(() => {
+    const latest = designs[designs.length - 1]
+    if (latest) setPreviewView(latest.print_area)
+  }, [designs])
+
   const toggleColor = (colorId) => {
     if (selections.some((selection) => selection.color_id === colorId)) {
-      setSelections((current) => current.filter((selection) => selection.color_id !== colorId))
+      setSelections((current) => {
+        const next = current.filter((selection) => selection.color_id !== colorId)
+        setPreviewColorId((activeId) => (activeId === colorId ? (next[0]?.color_id ?? null) : activeId))
+        return next
+      })
       return
     }
     setSelections((current) => [...current, {
       color_id: colorId,
       sizes: SIZES.map((size) => ({ size, quantity: 0 })),
     }])
+    setPreviewColorId(colorId)
   }
+
+  const previewColor = colors.find((color) => color.id === previewColorId)
+  const availableViews = ['front', 'back', ...(designs.some((d) => d.print_area === 'side') ? ['side'] : [])]
+  const currentDesign = [...designs].reverse().find((d) => d.print_area === previewView)
 
   const updateQuantity = (colorId, size, value) => {
     const quantity = Math.max(0, Number.parseInt(value, 10) || 0)
@@ -267,59 +269,89 @@ export default function Customize() {
       )}
 
       {step === 2 && (
-        <div>
-          <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
-            <div>
-              <p className="font-mono text-xs text-slate uppercase tracking-widest mb-2">Step 02 / Color & size</p>
-              <h2 className="font-display text-3xl sm:text-4xl uppercase text-paper">Split your {requestedQuantity} tees.</h2>
-            </div>
-            <div className={`font-mono text-sm ${quantityMatches ? 'text-acid' : 'text-riot'}`}>
-              {selectedQuantity} / {requestedQuantity} assigned
-            </div>
+        <div className="grid lg:grid-cols-[20rem_1fr] gap-8 items-start">
+          <div className="lg:sticky lg:top-20">
+            <TshirtPreview hex={previewColor?.hex_code} view={previewView} label={previewColor ? `${previewColor.name} tee` : 'Pick a color'} />
+            {selections.length > 1 && (
+              <div className="flex flex-wrap justify-center gap-2 mt-4">
+                {selections.map((selection) => {
+                  const color = colors.find((item) => item.id === selection.color_id)
+                  return (
+                    <button key={selection.color_id} type="button" onClick={() => setPreviewColorId(selection.color_id)}
+                      className={`w-7 h-7 rounded-full border-2 transition-all ${previewColorId === selection.color_id ? 'border-acid scale-110' : 'border-panel-2'}`}
+                      style={{ backgroundColor: color?.hex_code }} title={color?.name} />
+                  )
+                })}
+              </div>
+            )}
           </div>
 
-          <div className="flex flex-wrap gap-3 mb-8">
-            {colors.map((color) => {
-              const selected = selections.some((selection) => selection.color_id === color.id)
-              return (
-                <button key={color.id} type="button" onClick={() => toggleColor(color.id)}
-                  className={`flex items-center gap-2 border px-4 py-3 font-mono text-xs uppercase tracking-widest transition-colors ${selected ? 'border-acid text-acid bg-acid/5' : 'border-panel-2 text-slate hover:border-paper'}`}>
-                  <span className="w-4 h-4 rounded-full border border-panel-2" style={{ backgroundColor: color.hex_code }} />
-                  {color.name}
-                </button>
-              )
-            })}
-          </div>
+          <div>
+            <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
+              <div>
+                <p className="font-mono text-xs text-slate uppercase tracking-widest mb-2">Step 02 / Color & size</p>
+                <h2 className="font-display text-3xl sm:text-4xl uppercase text-paper">Split your {requestedQuantity} tees.</h2>
+              </div>
+              <div className={`font-mono text-sm ${quantityMatches ? 'text-acid' : 'text-riot'}`}>
+                {selectedQuantity} / {requestedQuantity} assigned
+              </div>
+            </div>
 
-          <div className="space-y-5">
-            {selections.map((selection) => {
-              const color = colors.find((item) => item.id === selection.color_id)
-              return (
-                <div key={selection.color_id} className="border border-panel-2 p-5 sm:p-6">
-                  <div className="flex items-center gap-3 mb-5">
-                    <span className="w-6 h-6 rounded-full border border-panel-2" style={{ backgroundColor: color?.hex_code }} />
-                    <h3 className="font-display text-2xl uppercase text-paper">{color?.name}</h3>
-                    <button type="button" onClick={() => toggleColor(selection.color_id)} className="ml-auto font-mono text-[10px] uppercase tracking-widest text-slate hover:text-riot">Remove</button>
+            <div className="flex flex-wrap gap-3 mb-8">
+              {colors.map((color) => {
+                const selected = selections.some((selection) => selection.color_id === color.id)
+                return (
+                  <button key={color.id} type="button" onClick={() => toggleColor(color.id)}
+                    className={`flex items-center gap-2 border px-4 py-3 font-mono text-xs uppercase tracking-widest transition-colors ${selected ? 'border-acid text-acid bg-acid/5' : 'border-panel-2 text-slate hover:border-paper'}`}>
+                    <span className="w-4 h-4 rounded-full border border-panel-2" style={{ backgroundColor: color.hex_code }} />
+                    {color.name}
+                  </button>
+                )
+              })}
+            </div>
+
+            <div className="space-y-5">
+              {selections.map((selection) => {
+                const color = colors.find((item) => item.id === selection.color_id)
+                return (
+                  <div key={selection.color_id} onClick={() => setPreviewColorId(selection.color_id)}
+                    className={`border p-5 sm:p-6 cursor-pointer transition-colors ${previewColorId === selection.color_id ? 'border-acid' : 'border-panel-2'}`}>
+                    <div className="flex items-center gap-3 mb-5">
+                      <span className="w-6 h-6 rounded-full border border-panel-2" style={{ backgroundColor: color?.hex_code }} />
+                      <h3 className="font-display text-2xl uppercase text-paper">{color?.name}</h3>
+                      <button type="button" onClick={(event) => { event.stopPropagation(); toggleColor(selection.color_id) }} className="ml-auto font-mono text-[10px] uppercase tracking-widest text-slate hover:text-riot">Remove</button>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                      {selection.sizes.map((item) => (
+                        <label key={item.size} className="block" onClick={(event) => event.stopPropagation()}>
+                          <span className="font-mono text-[11px] uppercase tracking-widest text-slate block mb-2">Size {item.size}</span>
+                          <input type="number" min="0" step="1" value={item.quantity}
+                            onChange={(event) => updateQuantity(selection.color_id, item.size, event.target.value)}
+                            className="w-full bg-panel border border-panel-2 px-3 py-3 text-paper font-mono focus:border-acid outline-none" />
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                    {selection.sizes.map((item) => (
-                      <label key={item.size} className="block">
-                        <span className="font-mono text-[11px] uppercase tracking-widest text-slate block mb-2">Size {item.size}</span>
-                        <input type="number" min="0" step="1" value={item.quantity}
-                          onChange={(event) => updateQuantity(selection.color_id, item.size, event.target.value)}
-                          className="w-full bg-panel border border-panel-2 px-3 py-3 text-paper font-mono focus:border-acid outline-none" />
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
+            {selections.length === 0 && <p className="border border-dashed border-panel-2 p-8 text-center font-mono text-xs text-slate">Select one or more available colors to continue.</p>}
           </div>
-          {selections.length === 0 && <p className="border border-dashed border-panel-2 p-8 text-center font-mono text-xs text-slate">Select one or more available colors to continue.</p>}
         </div>
       )}
 
-      {step === 3 && <DesignUploader designs={designs} setDesigns={setDesigns} />}
+      {step === 3 && (
+        <div className="grid lg:grid-cols-[20rem_1fr] gap-8 items-start">
+          <div className="lg:sticky lg:top-20">
+            <TshirtPreview
+              hex={previewColor?.hex_code} view={previewView} design={currentDesign}
+              availableViews={availableViews} onChangeView={setPreviewView}
+              label={previewColor ? `${previewColor.name} · ${previewView}` : previewView}
+            />
+          </div>
+          <DesignUploader designs={designs} setDesigns={setDesigns} />
+        </div>
+      )}
 
       {step === 4 && (
         <form onSubmit={handleSubmitOrder}>
@@ -356,7 +388,14 @@ export default function Customize() {
               </div>
               {submitError && <p className="text-riot font-mono text-xs mt-4">{submitError}</p>}
             </div>
-            <PriceSummary quote={quote} quoteLoading={quoteLoading} totalPieces={selectedQuantity} />
+            <div className="space-y-6">
+              <TshirtPreview
+                hex={previewColor?.hex_code} view={previewView} design={currentDesign}
+                availableViews={availableViews} onChangeView={setPreviewView}
+                label={previewColor ? `${previewColor.name} · ${previewView}` : previewView}
+              />
+              <PriceSummary quote={quote} quoteLoading={quoteLoading} totalPieces={selectedQuantity} />
+            </div>
           </div>
           <button type="submit" disabled={submitting || !quote}
             className="w-full mt-8 py-4 bg-acid text-ink font-mono text-xs uppercase tracking-widest hover:bg-acid/90 disabled:opacity-40 transition-colors">
