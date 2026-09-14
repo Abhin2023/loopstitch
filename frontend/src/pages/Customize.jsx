@@ -248,8 +248,8 @@ export default function Customize() {
       </div>
 
       {step === 1 && (
-        <div className="grid lg:grid-cols-2 gap-8 items-center">
-          <TshirtPreview />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+          <TshirtPreview view={previewView} availableViews={['front', 'back']} onChangeView={setPreviewView} label="Blank tee preview" />
           <div className="border border-panel-2 p-6 sm:p-8">
             <p className="font-mono text-xs text-slate uppercase tracking-widest mb-3">Step 01 / Quantity</p>
             <h2 className="font-display text-3xl uppercase text-paper">How many tees?</h2>
@@ -269,9 +269,12 @@ export default function Customize() {
       )}
 
       {step === 2 && (
-        <div className="grid lg:grid-cols-[20rem_1fr] gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[20rem_minmax(0,1fr)] gap-8 items-start">
           <div className="lg:sticky lg:top-20">
-            <TshirtPreview hex={previewColor?.hex_code} view={previewView} label={previewColor ? `${previewColor.name} tee` : 'Pick a color'} />
+            <TshirtPreview
+              hex={previewColor?.hex_code} view={previewView} availableViews={['front', 'back']} onChangeView={setPreviewView}
+              label={previewColor ? `${previewColor.name} tee` : 'Pick a color'}
+            />
             {selections.length > 1 && (
               <div className="flex flex-wrap justify-center gap-2 mt-4">
                 {selections.map((selection) => {
@@ -341,7 +344,7 @@ export default function Customize() {
       )}
 
       {step === 3 && (
-        <div className="grid lg:grid-cols-[20rem_1fr] gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[20rem_minmax(0,1fr)] gap-8 items-start">
           <div className="lg:sticky lg:top-20">
             <TshirtPreview
               hex={previewColor?.hex_code} view={previewView} design={currentDesign}
@@ -355,7 +358,7 @@ export default function Customize() {
 
       {step === 4 && (
         <form onSubmit={handleSubmitOrder}>
-          <div className="grid lg:grid-cols-[1fr_20rem] gap-8 items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_20rem] gap-8 items-start">
             <div>
               <p className="font-mono text-xs text-slate uppercase tracking-widest mb-2">Step 04 / Payment</p>
               <h2 className="font-display text-3xl sm:text-4xl uppercase text-paper mb-6">Review and pay.</h2>

@@ -79,20 +79,20 @@ export default function DesignUploader({ designs, setDesigns }) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-mono text-xs text-paper truncate">{d.file_name}</p>
-                  <div className="flex gap-3 mt-2">
+                  <div className="flex flex-wrap gap-3 mt-2">
                     <select value={d.print_area} onChange={(e) => updateDesign(i, 'print_area', e.target.value)}
-                      className="bg-panel border border-panel-2 px-2 py-1 text-xs text-paper font-mono focus:border-acid outline-none">
+                      className="shrink-0 bg-panel border border-panel-2 px-2 py-2 text-xs text-paper font-mono focus:border-acid outline-none">
                       {PRINT_AREAS.map((pa) => (
                         <option key={pa.value} value={pa.value}>{pa.label}</option>
                       ))}
                     </select>
                     <input type="text" placeholder="Notes (optional)" value={d.notes}
                       onChange={(e) => updateDesign(i, 'notes', e.target.value)}
-                      className="flex-1 bg-panel border border-panel-2 px-2 py-1 text-xs text-paper font-mono focus:border-acid outline-none" />
+                      className="flex-1 min-w-[8rem] bg-panel border border-panel-2 px-2 py-2 text-xs text-paper font-mono focus:border-acid outline-none" />
                   </div>
                 </div>
                 <button onClick={() => removeDesign(i)}
-                  className="text-riot hover:text-riot/80 font-mono text-sm transition-all">✕</button>
+                  className="text-riot hover:text-riot/80 font-mono text-sm transition-all p-2 -m-2">✕</button>
               </div>
             </div>
           ))}
