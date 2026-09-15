@@ -1,4 +1,11 @@
+import { useEffect } from 'react'
+
 export default function About() {
+  useEffect(() => {
+    document.title = 'About | Loopstitch Co.'
+    return () => { document.title = 'Loopstitch Co.' }
+  }, [])
+
   return (
     <div className="max-w-3xl mx-auto px-5 sm:px-8 py-16 sm:py-24">
       <p className="font-mono text-xs text-riot tracking-widest uppercase mb-4">About</p>

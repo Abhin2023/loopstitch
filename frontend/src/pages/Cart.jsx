@@ -85,7 +85,7 @@ export default function Cart() {
                   </div>
                   <div className="flex items-center justify-between mt-3">
                     <div className="flex items-center border border-panel-2">
-                      <button onClick={() => updateQuantity(item.key, item.quantity - 1)} className="w-10 h-10 font-mono text-paper hover:text-acid" aria-label="Decrease quantity">−</button>
+                      <button onClick={() => updateQuantity(item.key, item.quantity - 1)} disabled={item.quantity <= 1} className="w-10 h-10 font-mono text-paper hover:text-acid disabled:text-slate-dim disabled:cursor-not-allowed" aria-label="Decrease quantity">−</button>
                       <span className="w-9 text-center font-mono text-xs text-paper">{item.quantity}</span>
                       <button
                         onClick={() => updateQuantity(item.key, item.quantity + 1)}
