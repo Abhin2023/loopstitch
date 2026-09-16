@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import client from '../../api/client'
 import { formatINR } from '../../utils/format'
 import { UploadIcon } from '../icons'
+import StitchLoader from '../components/StitchLoader'
 
 const SIZES = ['S', 'M', 'L', 'XL', 'XXL']
 
@@ -67,7 +68,7 @@ export default function MobileCustomize() {
       .finally(() => setUploading(false))
   }
 
-  if (loading) return <p style={{ padding: 24, fontSize: 12, color: 'var(--ls-text-muted)' }}>Loading…</p>
+  if (loading) return <StitchLoader label="Loading custom studio" />
   if (pageError || !config?.is_active) {
     return <p style={{ padding: 24, fontSize: 13, color: 'var(--ls-text-muted)', textAlign: 'center' }}>{pageError || 'Custom t-shirt printing is currently unavailable.'}</p>
   }
