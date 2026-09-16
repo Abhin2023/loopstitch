@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import client from '../../api/client'
 import ProductTile from '../components/ProductTile'
+import StitchLoader from '../components/StitchLoader'
 
 export default function MobileHome() {
   const navigate = useNavigate()
@@ -41,7 +42,7 @@ export default function MobileHome() {
         </p>
         <h2 style={{ margin: '0 0 14px', fontSize: 20, fontWeight: 800 }}>While it lasts</h2>
         {loading ? (
-          <p style={{ fontSize: 12, color: 'var(--ls-text-muted)' }}>Loading…</p>
+          <StitchLoader label="Loading drops" />
         ) : featured.length === 0 ? (
           <p style={{ fontSize: 12, color: 'var(--ls-text-muted)' }}>No featured drops right now — check the full shop.</p>
         ) : (

@@ -4,6 +4,7 @@ import client, { mediaUrl } from '../../api/client'
 import { useCart } from '../../context/CartContext'
 import { formatINR } from '../../utils/format'
 import { useToast } from '../context/ToastContext'
+import StitchLoader from '../components/StitchLoader'
 
 export default function MobileProductDetail() {
   const { slug } = useParams()
@@ -30,7 +31,7 @@ export default function MobileProductDetail() {
       .finally(() => setLoading(false))
   }, [slug])
 
-  if (loading) return <p style={{ padding: 24, fontSize: 12, color: 'var(--ls-text-muted)' }}>Loading…</p>
+  if (loading) return <StitchLoader label="Loading product" />
   if (error || !product) {
     return (
       <div style={{ padding: 24, textAlign: 'center' }}>

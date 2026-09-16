@@ -297,6 +297,30 @@
   to { opacity: 1; transform: translate(-50%, 0); }
 }
 
+/* ---------- Stitch loader ---------- */
+.ls-stitch-line {
+  animation: ls-stitch-dash 0.9s linear infinite;
+}
+
+.ls-stitch-bead {
+  animation: ls-stitch-bead 1.6s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@keyframes ls-stitch-dash {
+  to { stroke-dashoffset: -24; }
+}
+
+@keyframes ls-stitch-bead {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(90px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ls-stitch-line, .ls-stitch-bead { animation: none; }
+}
+
 /* ---------- Stepper ---------- */
 .ls-stepper-btn {
   border: 1px solid var(--ls-divider);

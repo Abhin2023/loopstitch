@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import client from '../../api/client'
 import ProductTile from '../components/ProductTile'
+import StitchLoader from '../components/StitchLoader'
 
 const CATEGORIES = [
   { value: '', label: 'All' },
@@ -36,7 +37,7 @@ export default function MobileShop() {
       </div>
 
       {loading ? (
-        <p style={{ fontSize: 12, color: 'var(--ls-text-muted)' }}>Loading…</p>
+        <StitchLoader label="Loading catalog" />
       ) : products.length === 0 ? (
         <p style={{ fontSize: 12, color: 'var(--ls-text-muted)', textAlign: 'center', padding: '40px 0' }}>
           Nothing here yet. Check back for the next drop.

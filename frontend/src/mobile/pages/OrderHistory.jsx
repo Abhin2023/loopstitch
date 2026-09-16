@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import client from '../../api/client'
 import { useCustomerAuth } from '../../context/CustomerAuthContext'
 import { formatINR } from '../../utils/format'
+import StitchLoader from '../components/StitchLoader'
 
 export default function MobileOrderHistory() {
   const { isAuthenticated, loading: authLoading } = useCustomerAuth()
@@ -19,7 +20,7 @@ export default function MobileOrderHistory() {
   }, [isAuthenticated])
 
   if (authLoading || !isAuthenticated || !orders) {
-    return <p style={{ padding: 24, fontSize: 12, color: 'var(--ls-text-muted)' }}>Loading…</p>
+    return <StitchLoader label="Loading orders" />
   }
 
   return (
