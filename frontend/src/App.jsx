@@ -34,6 +34,19 @@ import AdminNotifications from './pages/admin/AdminNotifications'
 import AdminCustomTshirt from './pages/admin/AdminCustomTshirt'
 import AdminCustomOrders from './pages/admin/AdminCustomOrders'
 
+import MobileLayout from './mobile/MobileLayout'
+import MobileHome from './mobile/pages/Home'
+import MobileShop from './mobile/pages/Shop'
+import MobileProductDetail from './mobile/pages/ProductDetail'
+import MobileCustomize from './mobile/pages/Customize'
+import MobileCustomCheckout from './mobile/pages/CustomCheckout'
+import MobileCart from './mobile/pages/Cart'
+import MobileCheckout from './mobile/pages/Checkout'
+import MobileOrderConfirmation from './mobile/pages/OrderConfirmation'
+import MobileOrderHistory from './mobile/pages/OrderHistory'
+import MobileAccount from './mobile/pages/Account'
+import MobileLogin from './mobile/pages/Login'
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -56,6 +69,22 @@ export default function App() {
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/privacy" element={<Privacy />} />
                 <Route path="*" element={<NotFound />} />
+              </Route>
+
+              {/* Mobile app — Modernist design system, talks to the same live backend */}
+              <Route path="/app" element={<MobileLayout />}>
+                <Route index element={<MobileHome />} />
+                <Route path="shop" element={<MobileShop />} />
+                <Route path="product/:slug" element={<MobileProductDetail />} />
+                <Route path="customize" element={<MobileCustomize />} />
+                <Route path="customize/checkout" element={<MobileCustomCheckout />} />
+                <Route path="cart" element={<MobileCart />} />
+                <Route path="checkout" element={<MobileCheckout />} />
+                <Route path="order/confirm" element={<MobileOrderConfirmation />} />
+                <Route path="orders" element={<MobileOrderHistory />} />
+                <Route path="account" element={<MobileAccount />} />
+                <Route path="login" element={<MobileLogin />} />
+                <Route path="*" element={<Navigate to="/app" replace />} />
               </Route>
 
               {/* Hidden admin area */}
