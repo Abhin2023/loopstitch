@@ -3,12 +3,41 @@ import { useNavigate } from 'react-router-dom'
 import client from '../api/client'
 import { useCustomerAuth } from '../context/CustomerAuthContext'
 import Loader from '../components/Loader'
-import DesignUploader from '../components/custom/DesignUploader'
+import TshirtCustomizer, { BODY_FRONT, COLLAR_FRONT, NECKHOLE_FRONT, getStageBg, getLuminance } from '../components/custom/TshirtCustomizer'
 import PriceSummary from '../components/custom/PriceSummary'
-import TshirtPreview from '../components/custom/TshirtPreview'
 import LoginModal from '../components/LoginModal'
 
 const SIZES = ['S', 'M', 'L', 'XL', 'XXL']
+
+function TshirtPreview({ colorHex }) {
+  const hex = colorHex || '#1A1A1A'
+  const textFill = getLuminance(hex) < 0.45 ? '#ffffff' : '#000000'
+  return (
+    <div className="relative w-full max-w-sm mx-auto aspect-[5/6.2] border border-panel-2 flex items-center justify-center overflow-hidden p-6" style={{ backgroundColor: getStageBg(hex) }}>
+      <svg viewBox="0 0 500 640" className="relative w-full h-full" style={{ filter: 'drop-shadow(0 18px 22px rgba(0,0,0,0.35))' }} role="img" aria-label="Blank t-shirt preview">
+        <defs>
+          <clipPath id="bodyclip-preview"><path d={BODY_FRONT} /></clipPath>
+          <radialGradient id="light-preview" cx="38%" cy="10%" r="80%">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.14" />
+            <stop offset="45%" stopColor="#ffffff" stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id="edge-preview" cx="50%" cy="42%" r="72%">
+            <stop offset="55%" stopColor="#000000" stopOpacity="0" />
+            <stop offset="100%" stopColor="#000000" stopOpacity="0.25" />
+          </radialGradient>
+        </defs>
+        <path d={BODY_FRONT} fill={hex} />
+        <text x="250" y="360" textAnchor="middle" fill={textFill} fillOpacity="0.35" fontFamily="JetBrains Mono, monospace" fontSize="14" fontWeight="600" letterSpacing="1">YOUR DESIGN</text>
+        <path d={BODY_FRONT} fill="url(#light-preview)" style={{ mixBlendMode: 'soft-light', pointerEvents: 'none' }} clipPath="url(#bodyclip-preview)" />
+        <path d={BODY_FRONT} fill="url(#edge-preview)" style={{ mixBlendMode: 'multiply', pointerEvents: 'none' }} clipPath="url(#bodyclip-preview)" />
+        <path d={NECKHOLE_FRONT} fill="#000" opacity="0.35" />
+        <path d={COLLAR_FRONT} fill={hex} />
+        <path d={COLLAR_FRONT} fill="#000" opacity="0.08" style={{ mixBlendMode: 'multiply' }} />
+      </svg>
+      <span className="absolute bottom-3 left-3 font-mono text-[10px] uppercase tracking-widest text-slate">Blank tee preview</span>
+    </div>
+  )
+}
 
 export default function Customize() {
   const navigate = useNavigate()
@@ -19,11 +48,8 @@ export default function Customize() {
   const [pageError, setPageError] = useState(null)
   const [loginOpen, setLoginOpen] = useState(false)
   const [step, setStep] = useState(1)
-  const [targetQty, setTargetQty] = useState('')
   const [selections, setSelections] = useState([])
   const [designs, setDesigns] = useState([])
-  const [previewColorId, setPreviewColorId] = useState(null)
-  const [previewView, setPreviewView] = useState('front')
   const [quote, setQuote] = useState(null)
   const [quoteLoading, setQuoteLoading] = useState(false)
   const [form, setForm] = useState({
@@ -68,8 +94,9 @@ export default function Customize() {
   const selectedQuantity = selections.reduce(
     (total, selection) => total + selection.sizes.reduce((sum, size) => sum + size.quantity, 0), 0,
   )
-  const requestedQuantity = Number(targetQty || 0)
-  const quantityMatches = requestedQuantity > 0 && selectedQuantity === requestedQuantity
+  const minQty = config?.min_order_qty || 1
+  const belowMinimum = selectedQuantity > 0 && selectedQuantity < minQty
+  const canProceedFromOrder = selectedQuantity > 0 && selectedQuantity >= minQty
 
   useEffect(() => {
     if (selectedQuantity < (config?.min_order_qty || 1)) {
@@ -86,30 +113,16 @@ export default function Customize() {
     return () => clearTimeout(timeout)
   }, [selections, selectedQuantity, config?.min_order_qty])
 
-  useEffect(() => {
-    const latest = designs[designs.length - 1]
-    if (latest) setPreviewView(latest.print_area)
-  }, [designs])
-
   const toggleColor = (colorId) => {
     if (selections.some((selection) => selection.color_id === colorId)) {
-      setSelections((current) => {
-        const next = current.filter((selection) => selection.color_id !== colorId)
-        setPreviewColorId((activeId) => (activeId === colorId ? (next[0]?.color_id ?? null) : activeId))
-        return next
-      })
+      setSelections((current) => current.filter((selection) => selection.color_id !== colorId))
       return
     }
     setSelections((current) => [...current, {
       color_id: colorId,
       sizes: SIZES.map((size) => ({ size, quantity: 0 })),
     }])
-    setPreviewColorId(colorId)
   }
-
-  const previewColor = colors.find((color) => color.id === previewColorId)
-  const availableViews = ['front', 'back', ...(designs.some((d) => d.print_area === 'side') ? ['side'] : [])]
-  const currentDesign = [...designs].reverse().find((d) => d.print_area === previewView)
 
   const updateQuantity = (colorId, size, value) => {
     const quantity = Math.max(0, Number.parseInt(value, 10) || 0)
@@ -235,11 +248,11 @@ export default function Customize() {
       <div className="max-w-2xl mb-10">
         <p className="font-mono text-xs text-acid tracking-[0.2em] uppercase mb-3">Custom studio</p>
         <h1 className="font-display text-4xl sm:text-6xl uppercase text-paper leading-none">Make it yours.</h1>
-        <p className="font-mono text-xs sm:text-sm text-slate mt-4 leading-relaxed">Choose your quantity, split it across colors and sizes, then send us your artwork.</p>
+        <p className="font-mono text-xs sm:text-sm text-slate mt-4 leading-relaxed">Pick your colors and sizes, then send us your artwork.</p>
       </div>
 
       <div className="flex gap-2 mb-10" aria-label="Customization steps">
-        {['Quantity', 'Color & size', 'Design', 'Payment'].map((label, index) => (
+        {['Order', 'Design', 'Payment'].map((label, index) => (
           <div key={label} className="flex-1">
             <div className={`h-1 ${index + 1 <= step ? 'bg-acid' : 'bg-panel-2'}`} />
             <span className={`font-mono text-[10px] uppercase tracking-widest mt-2 block ${index + 1 === step ? 'text-acid' : 'text-slate'}`}>{label}</span>
@@ -248,59 +261,13 @@ export default function Customize() {
       </div>
 
       {step === 1 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-          <TshirtPreview view={previewView} availableViews={['front', 'back']} onChangeView={setPreviewView} label="Blank tee preview" />
-          <div className="border border-panel-2 p-6 sm:p-8">
-            <p className="font-mono text-xs text-slate uppercase tracking-widest mb-3">Step 01 / Quantity</p>
-            <h2 className="font-display text-3xl uppercase text-paper">How many tees?</h2>
-            <p className="text-sm text-slate leading-relaxed mt-3">Enter the total number of t-shirts you want. You will split this total between colors and sizes next.</p>
-            <label className="block mt-7">
-              <span className="font-mono text-[11px] uppercase tracking-widest text-slate block mb-2">Total quantity</span>
-              <input
-                type="number" min={config.min_order_qty} step="1" value={targetQty}
-                onChange={(event) => setTargetQty(event.target.value)}
-                placeholder={`Minimum ${config.min_order_qty}`}
-                className="w-full bg-panel border border-panel-2 px-4 py-4 text-2xl text-paper focus:border-acid outline-none font-mono"
-              />
-            </label>
-            <p className="font-mono text-[11px] text-slate mt-3">Base price: ₹{Number(config.base_price).toLocaleString('en-IN')} per piece before volume discounts.</p>
-          </div>
-        </div>
-      )}
-
-      {step === 2 && (
-        <div className="grid grid-cols-1 lg:grid-cols-[20rem_minmax(0,1fr)] gap-8 items-start">
-          <div className="lg:sticky lg:top-20">
-            <TshirtPreview
-              hex={previewColor?.hex_code} view={previewView} availableViews={['front', 'back']} onChangeView={setPreviewView}
-              label={previewColor ? `${previewColor.name} tee` : 'Pick a color'}
-            />
-            {selections.length > 1 && (
-              <div className="flex flex-wrap justify-center gap-2 mt-4">
-                {selections.map((selection) => {
-                  const color = colors.find((item) => item.id === selection.color_id)
-                  return (
-                    <button key={selection.color_id} type="button" onClick={() => setPreviewColorId(selection.color_id)}
-                      className={`w-7 h-7 rounded-full border-2 transition-all ${previewColorId === selection.color_id ? 'border-acid scale-110' : 'border-panel-2'}`}
-                      style={{ backgroundColor: color?.hex_code }} title={color?.name} />
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
+        <div className="grid lg:grid-cols-[1fr_20rem] gap-8 items-start">
           <div>
-            <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
-              <div>
-                <p className="font-mono text-xs text-slate uppercase tracking-widest mb-2">Step 02 / Color & size</p>
-                <h2 className="font-display text-3xl sm:text-4xl uppercase text-paper">Split your {requestedQuantity} tees.</h2>
-              </div>
-              <div className={`font-mono text-sm ${quantityMatches ? 'text-acid' : 'text-riot'}`}>
-                {selectedQuantity} / {requestedQuantity} assigned
-              </div>
-            </div>
+            <p className="font-mono text-xs text-slate uppercase tracking-widest mb-2">Step 01 / Order</p>
+            <h2 className="font-display text-3xl sm:text-4xl uppercase text-paper mb-1">Pick colors &amp; sizes.</h2>
+            <p className="text-sm text-slate leading-relaxed mb-6">Tap a color to add it, then set a quantity for each size you need. Add as many colors as you like.</p>
 
-            <div className="flex flex-wrap gap-3 mb-8">
+            <div className="flex flex-wrap gap-3 mb-6">
               {colors.map((color) => {
                 const selected = selections.some((selection) => selection.color_id === color.id)
                 return (
@@ -316,17 +283,18 @@ export default function Customize() {
             <div className="space-y-5">
               {selections.map((selection) => {
                 const color = colors.find((item) => item.id === selection.color_id)
+                const colorTotal = selection.sizes.reduce((sum, item) => sum + item.quantity, 0)
                 return (
-                  <div key={selection.color_id} onClick={() => setPreviewColorId(selection.color_id)}
-                    className={`border p-5 sm:p-6 cursor-pointer transition-colors ${previewColorId === selection.color_id ? 'border-acid' : 'border-panel-2'}`}>
+                  <div key={selection.color_id} className="border border-panel-2 p-5 sm:p-6">
                     <div className="flex items-center gap-3 mb-5">
                       <span className="w-6 h-6 rounded-full border border-panel-2" style={{ backgroundColor: color?.hex_code }} />
                       <h3 className="font-display text-2xl uppercase text-paper">{color?.name}</h3>
-                      <button type="button" onClick={(event) => { event.stopPropagation(); toggleColor(selection.color_id) }} className="ml-auto font-mono text-[10px] uppercase tracking-widest text-slate hover:text-riot">Remove</button>
+                      {colorTotal > 0 && <span className="font-mono text-[11px] text-acid">{colorTotal} pcs</span>}
+                      <button type="button" onClick={() => toggleColor(selection.color_id)} className="ml-auto font-mono text-[10px] uppercase tracking-widest text-slate hover:text-riot">Remove</button>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                       {selection.sizes.map((item) => (
-                        <label key={item.size} className="block" onClick={(event) => event.stopPropagation()}>
+                        <label key={item.size} className="block">
                           <span className="font-mono text-[11px] uppercase tracking-widest text-slate block mb-2">Size {item.size}</span>
                           <input type="number" min="0" step="1" value={item.quantity}
                             onChange={(event) => updateQuantity(selection.color_id, item.size, event.target.value)}
@@ -338,29 +306,41 @@ export default function Customize() {
                 )
               })}
             </div>
-            {selections.length === 0 && <p className="border border-dashed border-panel-2 p-8 text-center font-mono text-xs text-slate">Select one or more available colors to continue.</p>}
+            {selections.length === 0 && <p className="border border-dashed border-panel-2 p-8 text-center font-mono text-xs text-slate">Tap a color above to start building your order.</p>}
+          </div>
+
+          <div className="lg:sticky lg:top-24 space-y-6">
+            <TshirtPreview colorHex={(colors.find((c) => c.id === selections[0]?.color_id) || colors[0])?.hex_code} />
+            {selectedQuantity >= minQty ? (
+              <PriceSummary quote={quote} quoteLoading={quoteLoading} totalPieces={selectedQuantity} />
+            ) : (
+              <div className="border border-panel-2 p-6 space-y-2">
+                <div className="flex justify-between font-mono text-xs text-slate">
+                  <span>{selectedQuantity} piece{selectedQuantity === 1 ? '' : 's'} so far</span>
+                  <span>₹{(selectedQuantity * Number(config.base_price)).toLocaleString('en-IN')} est.</span>
+                </div>
+                {belowMinimum && (
+                  <p className="font-mono text-[11px] text-riot">Add {minQty - selectedQuantity} more to meet the {minQty}-piece minimum.</p>
+                )}
+                {selectedQuantity === 0 && (
+                  <p className="font-mono text-[11px] text-slate">₹{Number(config.base_price).toLocaleString('en-IN')} per piece before volume discounts.</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
+
+      {step === 2 && <TshirtCustomizer colors={colors} selections={selections} designs={designs} setDesigns={setDesigns} />}
 
       {step === 3 && (
-        <div className="grid grid-cols-1 lg:grid-cols-[20rem_minmax(0,1fr)] gap-8 items-start">
-          <div className="lg:sticky lg:top-20">
-            <TshirtPreview
-              hex={previewColor?.hex_code} view={previewView} design={currentDesign}
-              availableViews={availableViews} onChangeView={setPreviewView}
-              label={previewColor ? `${previewColor.name} · ${previewView}` : previewView}
-            />
-          </div>
-          <DesignUploader designs={designs} setDesigns={setDesigns} />
-        </div>
-      )}
-
-      {step === 4 && (
         <form onSubmit={handleSubmitOrder}>
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_20rem] gap-8 items-start">
+          <button type="button" onClick={() => setStep(2)} className="mb-6 font-mono text-xs uppercase tracking-widest text-slate hover:text-paper underline">
+            ← Back to design
+          </button>
+          <div className="grid lg:grid-cols-[1fr_20rem] gap-8 items-start">
             <div>
-              <p className="font-mono text-xs text-slate uppercase tracking-widest mb-2">Step 04 / Payment</p>
+              <p className="font-mono text-xs text-slate uppercase tracking-widest mb-2">Step 03 / Payment</p>
               <h2 className="font-display text-3xl sm:text-4xl uppercase text-paper mb-6">Review and pay.</h2>
               <div className="border border-panel-2 p-6 space-y-5">
                 <h3 className="font-mono text-xs uppercase tracking-widest text-acid">Shipping details</h3>
@@ -391,14 +371,7 @@ export default function Customize() {
               </div>
               {submitError && <p className="text-riot font-mono text-xs mt-4">{submitError}</p>}
             </div>
-            <div className="space-y-6">
-              <TshirtPreview
-                hex={previewColor?.hex_code} view={previewView} design={currentDesign}
-                availableViews={availableViews} onChangeView={setPreviewView}
-                label={previewColor ? `${previewColor.name} · ${previewView}` : previewView}
-              />
-              <PriceSummary quote={quote} quoteLoading={quoteLoading} totalPieces={selectedQuantity} />
-            </div>
+            <PriceSummary quote={quote} quoteLoading={quoteLoading} totalPieces={selectedQuantity} />
           </div>
           <button type="submit" disabled={submitting || !quote}
             className="w-full mt-8 py-4 bg-acid text-ink font-mono text-xs uppercase tracking-widest hover:bg-acid/90 disabled:opacity-40 transition-colors">
@@ -407,12 +380,12 @@ export default function Customize() {
         </form>
       )}
 
-      {step < 4 && (
+      {step < 3 && (
         <div className="flex gap-3 mt-8">
           {step > 1 && <button type="button" onClick={() => setStep(step - 1)} className="flex-1 py-3 border border-panel-2 text-slate font-mono text-xs uppercase tracking-widest hover:border-paper transition-colors">Back</button>}
-          <button type="button" disabled={(step === 1 && requestedQuantity < config.min_order_qty) || (step === 2 && !quantityMatches)}
+          <button type="button" disabled={step === 1 && !canProceedFromOrder}
             onClick={() => setStep(step + 1)} className="flex-1 py-3 bg-acid text-ink font-mono text-xs uppercase tracking-widest hover:bg-acid/90 disabled:opacity-40 transition-colors">
-            {step === 3 ? 'Review and pay' : 'Continue'}
+            {step === 2 ? 'Review and pay' : 'Continue'}
           </button>
         </div>
       )}

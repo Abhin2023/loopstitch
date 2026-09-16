@@ -27,7 +27,9 @@ def upload_to_gcs(file_bytes: bytes, filename: str) -> str:
     bucket = get_gcs_client().bucket(_bucket_name)
     blob = bucket.blob(filename)
     blob.upload_from_string(file_bytes, content_type="application/octet-stream")
-    blob.make_public()
+    # Buckets with uniform bucket-level access reject per-object ACL calls like
+    # blob.make_public(); public read must instead be granted once at the bucket
+    # level (IAM: allUsers -> Storage Object Viewer), which this bucket has.
     return blob.public_url
 
 

@@ -45,8 +45,8 @@ export default function Navbar() {
     <>
       <header className="sticky top-0 z-40 bg-ink/90 backdrop-blur border-b border-panel-2">
         <nav className="max-w-7xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between">
-          <Link to="/" className="font-display text-xl sm:text-2xl tracking-wide text-paper" onClick={() => setOpen(false)}>
-            LOOPSTITCH<span className="text-riot">.</span>
+          <Link to="/" className="flex items-center" onClick={() => setOpen(false)}>
+            <img src="/preview.webp" alt="Loopstitch" className="h-10 w-auto object-contain" />
           </Link>
 
           <div className="hidden md:flex items-center gap-8">
